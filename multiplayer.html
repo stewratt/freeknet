@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>doodler — multiplayer notes</title>
+<style>
+  :root {
+    --ink: #111;
+    --soft: #555;
+    --faint: #888;
+    --rule: #222;
+    --bg: #fafafa;
+    --card: #ffffff;
+    --accent: #2563eb;
+    --warn: #b45309;
+    --code-bg: #f4f4f4;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(180deg, #f6f7fa 0%, #ffffff 60%, #f0f0f0 100%);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 56px 28px 96px;
+  }
+  header h1 {
+    font-size: 36px;
+    font-weight: 300;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  header .lede {
+    color: var(--soft);
+    font-size: 16px;
+    margin: 0 0 8px;
+  }
+  header .meta {
+    color: var(--faint);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  nav.toc {
+    margin: 28px 0 40px;
+    padding: 18px 22px;
+    background: var(--card);
+    border: 1px solid #e6e6e6;
+    border-radius: 4px;
+    font-size: 13.5px;
+  }
+  nav.toc strong {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--soft);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+  nav.toc a {
+    display: block;
+    color: var(--ink);
+    text-decoration: none;
+    padding: 3px 0;
+  }
+  nav.toc a:hover { color: var(--accent); }
+
+  section {
+    margin: 56px 0;
+  }
+  section h2 {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    margin: 0 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--rule);
+    display: inline-block;
+  }
+  section h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 28px 0 8px;
+  }
+  p, li { font-size: 15.5px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 6px; }
+
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  pre {
+    background: var(--code-bg);
+    padding: 14px 16px;
+    border-radius: 4px;
+    border-left: 3px solid var(--rule);
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  pre code {
+    background: transparent;
+    padding: 0;
+    border: none;
+  }
+
+  .diagram {
+    background: var(--card);
+    border: 1px solid #e6e6e6;
+    border-radius: 4px;
+    padding: 18px 20px;
+    margin: 18px 0;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.4;
+    color: #333;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin: 16px 0;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid #e6e6e6;
+    border-radius: 4px;
+    padding: 14px 16px;
+  }
+  .card h4 {
+    margin: 0 0 6px;
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .card p { margin: 0; font-size: 13px; color: var(--soft); }
+
+  .callout {
+    background: #fffbeb;
+    border-left: 3px solid var(--warn);
+    padding: 12px 16px;
+    margin: 18px 0;
+    border-radius: 0 4px 4px 0;
+    font-size: 14px;
+  }
+  .callout strong { color: var(--warn); }
+
+  .num {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+    background: var(--ink);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 12px;
+    margin-right: 8px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin: 14px 0;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e6e6e6;
+  }
+  th {
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--soft);
+  }
+  tr:last-child td { border-bottom: none; }
+  td code { font-size: 12px; }
+
+  footer {
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 1px solid #e6e6e6;
+    color: var(--faint);
+    font-size: 12px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="meta">doodler · technical notes</div>
+  <h1>How the multiplayer works</h1>
+  <p class="lede">A primer on the realtime architecture behind this project, the infrastructure you need to keep it alive, and the realtime-game concepts worth knowing.</p>
+</header>
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <a href="#overview">1. Big picture</a>
+  <a href="#flow">2. The message flow, step by step</a>
+  <a href="#protocol">3. Wire protocol</a>
+  <a href="#infra">4. Infrastructure to keep running</a>
+  <a href="#capacity">5. Capacity &amp; scaling</a>
+  <a href="#concepts">6. Realtime concepts to know</a>
+  <a href="#security">7. Security &amp; cheating</a>
+  <a href="#prod">8. Production checklist</a>
+</nav>
+
+<section id="overview">
+  <h2>1. Big picture</h2>
+  <p>This is an <strong>authoritative-relay server</strong>. There is one Node.js process that every player connects to over a persistent WebSocket. The server holds the canonical state of who is in the world, where they are, and what they have drawn — and rebroadcasts everyone's updates to everyone else.</p>
+  <p>Three common multiplayer shapes you should know:</p>
+  <table>
+    <tr><th>Shape</th><th>What it is</th><th>Trade-off</th></tr>
+    <tr><td>Peer-to-peer</td><td>Clients talk to each other directly (e.g. WebRTC)</td><td>No server cost. Hard with NATs, hard to keep state consistent, every client trusts every other client.</td></tr>
+    <tr><td>Authoritative relay (this)</td><td>Server forwards messages and holds state, but doesn't simulate physics.</td><td>Cheap, simple, works for casual presence apps. Clients can still cheat their own position.</td></tr>
+    <tr><td>Authoritative simulator</td><td>Server actually runs the physics/game logic; clients just send inputs.</td><td>Cheat-resistant, used in competitive games. Much more CPU and code.</td></tr>
+  </table>
+  <p>Doodler is the middle one. The server doesn't care whether your "movement" obeys physics — it just rebroadcasts what you say. (We do clamp movement deltas to prevent obvious teleport griefing, but that's the extent of validation.)</p>
+</section>
+
+<section id="flow">
+  <h2>2. The message flow, step by step</h2>
+  <div class="diagram">
+   Player A (browser)          Server (Node)              Player B (browser)
+  ───────────────────         ────────────────           ───────────────────
+       │                            │                            │
+       │  open WS  ────────────────▶│                            │
+       │◀──────── { t:"welcome", id }                            │
+       │◀──────── { t:"snapshot", players:[ B... ] }             │
+       │                            │                            │
+       │  { t:"join", drawing } ───▶│                            │
+       │                            │  { t:"join", id:A, ... } ─▶│
+       │                            │                            │
+       │  { t:"move", x,z,rotY } ──▶│  (15 Hz)                   │
+       │                            │  { t:"update", id:A } ────▶│
+       │                            │                            │
+       │  { t:"chat", text } ──────▶│                            │
+       │◀──── { t:"chat", id:A, text } (echo to sender too)      │
+       │                            │  { t:"chat", id:A, text }─▶│
+       │                            │                            │
+       │  close WS  ───────────────▶│                            │
+       │                            │  { t:"leave", id:A } ─────▶│
+  </div>
+
+  <h3>What each step is doing</h3>
+  <ol>
+    <li><span class="num">1</span><strong>WebSocket handshake.</strong> A plain HTTP request that gets "upgraded" into a persistent bidirectional connection. Lives until either side closes.</li>
+    <li><span class="num">2</span><strong>Welcome + snapshot.</strong> The server assigns a UUID and sends the new client the current world state. This is your initial render of everyone already in the room.</li>
+    <li><span class="num">3</span><strong>Join.</strong> The new client sends its drawing (as a PNG data URL) once. The server stores it and tells every other client "this person just joined, here's what they look like."</li>
+    <li><span class="num">4</span><strong>Move updates.</strong> ~15 times per second, the client sends its current position. The server forwards to everyone else. Other clients <em>interpolate</em> between updates so motion looks smooth.</li>
+    <li><span class="num">5</span><strong>Chat.</strong> Sent once per message. The server broadcasts to everyone <em>including the sender</em> so the sender's own bubble appears via the same code path as everyone else's.</li>
+    <li><span class="num">6</span><strong>Leave.</strong> When the socket closes (tab closed, network drop, server-side timeout), the server tells everyone else to remove that player.</li>
+  </ol>
+</section>
+
+<section id="protocol">
+  <h2>3. Wire protocol</h2>
+  <p>Every message is JSON with a one-letter type field <code>t</code>. Keeping it short matters: at 15 Hz move updates with N players, every byte of overhead compounds.</p>
+
+  <h3>Client → Server</h3>
+<pre><code>{ "t": "join",  "drawing": "data:image/png;base64,..." }
+{ "t": "move",  "x": 1.2, "z": -3.4, "rotY": 0.7 }
+{ "t": "chat",  "text": "hello" }</code></pre>
+
+  <h3>Server → Client</h3>
+<pre><code>{ "t": "welcome",  "id": "uuid" }
+{ "t": "snapshot", "players": [ { "id", "drawing", "x", "z", "rotY" }, ... ] }
+{ "t": "join",     "id", "drawing", "x", "z", "rotY" }
+{ "t": "update",   "id", "x", "z", "rotY" }
+{ "t": "chat",     "id", "text" }
+{ "t": "leave",    "id" }</code></pre>
+
+  <div class="callout">
+    <strong>Watch out:</strong> The drawing is sent as a base64 PNG (~10–50 KB per player). For 10 players this is fine; for 100+ you'd want to switch to binary frames or upload to a CDN and send only a URL.
+  </div>
+</section>
+
+<section id="infra">
+  <h2>4. Infrastructure to keep running</h2>
+  <p>At a minimum, to keep a server alive 24/7 you need exactly one thing: a Linux box with Node.js that stays online. Everything else is hardening.</p>
+
+  <h3>The minimal stack</h3>
+  <div class="grid">
+    <div class="card">
+      <h4>A small VPS</h4>
+      <p>$5–10/month on Hetzner, DigitalOcean, Fly, Railway, Render, etc. 1 vCPU and 512 MB RAM is enough for ~100 concurrent players.</p>
+    </div>
+    <div class="card">
+      <h4>Node.js</h4>
+      <p>v18 or newer. The server is one file (<code>server.js</code>) that listens on TCP port 8080.</p>
+    </div>
+    <div class="card">
+      <h4>A process manager</h4>
+      <p><code>pm2</code> or a <code>systemd</code> unit. If the Node process crashes, you want it restarted within a second.</p>
+    </div>
+    <div class="card">
+      <h4>A reverse proxy (for production)</h4>
+      <p>nginx or Caddy in front of Node. Terminates TLS, serves the static client, upgrades <code>/ws</code> to WebSocket and forwards to Node.</p>
+    </div>
+  </div>
+
+  <h3>The client is static</h3>
+  <p>After <code>npm run build</code>, the client is just HTML/JS/CSS. Host it on any static CDN (Cloudflare Pages, Netlify, S3, GitHub Pages, your nginx). The static client connects back to your Node server via WebSocket.</p>
+
+  <h3>TLS / wss</h3>
+  <p>If your site is served over HTTPS, browsers <strong>require</strong> the WebSocket also be encrypted (<code>wss://</code>, not <code>ws://</code>). Easiest path: put Caddy in front, point it at your domain, it gets a free Let's Encrypt cert and proxies WebSocket to your Node server automatically.</p>
+
+<pre><code># Caddyfile — full TLS + WS proxy in 4 lines
+doodler.example.com {
+  reverse_proxy /ws ws://localhost:8080
+  root * /var/www/doodler
+  file_server
+}</code></pre>
+
+  <h3>What you do NOT need (yet)</h3>
+  <ul>
+    <li><strong>A database.</strong> All state lives in server RAM. If the server restarts, everyone's drawings are gone and they redraw on rejoin. That's fine for a casual room.</li>
+    <li><strong>Redis or a message queue.</strong> Only needed if you scale past one server (see §5).</li>
+    <li><strong>A CDN for the WebSocket.</strong> CDNs cache HTTP; WebSocket traffic should hit your origin directly.</li>
+  </ul>
+</section>
+
+<section id="capacity">
+  <h2>5. Capacity &amp; scaling</h2>
+
+  <h3>What "max player count" actually means</h3>
+  <p>There is no single number. The ceiling is whichever of these you hit first: <strong>CPU</strong> (JSON serialization), <strong>bandwidth</strong> (each player's updates fan out to everyone), <strong>memory</strong> (small — drawings dominate), or <strong>file descriptors</strong> (each WS connection is one).</p>
+
+  <h3>Back-of-envelope for this server</h3>
+  <p>Bandwidth grows as O(N²): each of N players sends ~15 updates/sec, and each update is forwarded to N−1 other players. Per-update JSON is ~80 bytes.</p>
+  <table>
+    <tr><th>Players</th><th>Outbound msgs/sec</th><th>Outbound bandwidth</th><th>Status</th></tr>
+    <tr><td>10</td><td>~1,350</td><td>~110 KB/s</td><td>trivial</td></tr>
+    <tr><td>50</td><td>~36,750</td><td>~2.9 MB/s</td><td>fine on a small VPS</td></tr>
+    <tr><td>100</td><td>~148,500</td><td>~12 MB/s</td><td>start watching CPU</td></tr>
+    <tr><td>200</td><td>~597,000</td><td>~48 MB/s</td><td>single node is straining</td></tr>
+    <tr><td>500+</td><td>—</td><td>—</td><td>needs sharding (multiple rooms or area-of-interest)</td></tr>
+  </table>
+  <p>Practical comfortable ceiling for this exact code on a 1-vCPU box: <strong>~75 concurrent players in one room</strong>. With light optimization (binary frames, area-of-interest filtering so you only get updates from nearby players) you can push to a few hundred.</p>
+
+  <h3>Scaling beyond one server</h3>
+  <ol>
+    <li><strong>Multiple rooms.</strong> The cheapest scale: spin up N independent server processes, one per "room", and route players at connect time. No shared state needed.</li>
+    <li><strong>Area of interest.</strong> Only send updates between players within ~30m of each other. Turns O(N²) into roughly O(N·k) where k is the average local crowd size.</li>
+    <li><strong>Shared state across nodes.</strong> If one room must span servers, you need a pub/sub (Redis, NATS) so move updates fan out across processes. This is a real step up in complexity — avoid until you're sure you need it.</li>
+  </ol>
+</section>
+
+<section id="concepts">
+  <h2>6. Realtime concepts to know</h2>
+
+  <h3>Tick rate</h3>
+  <p>How often a client sends updates. We use 15 Hz. Games like Counter-Strike use 64–128 Hz. Higher tick = lower perceived latency but more bandwidth. 15 Hz is fine for non-twitch movement.</p>
+
+  <h3>Interpolation</h3>
+  <p>If you receive a position update every 67 ms and render at 60 fps, you'd see other players "jump" between positions. So clients render <em>slightly in the past</em> (we delay by 120 ms) and smoothly interpolate between the two most recent received positions. This is why other people's avatars glide instead of teleport.</p>
+
+  <h3>Latency, jitter, packet loss</h3>
+  <ul>
+    <li><strong>Latency:</strong> the time for a packet to round-trip. 30 ms in-region, 150 ms cross-continent.</li>
+    <li><strong>Jitter:</strong> variation in latency. A jittery connection is worse than a slow-but-steady one — interpolation hides steady latency but stutters under jitter.</li>
+    <li><strong>Packet loss:</strong> on WebSocket-over-TCP, "loss" is invisible to you but shows up as head-of-line blocking — a brief freeze while TCP retransmits. UDP-based protocols (WebRTC, QUIC) handle this better but are much more work.</li>
+  </ul>
+
+  <h3>Client prediction (not used here)</h3>
+  <p>In games where the server simulates the world, your own input is applied locally <em>and</em> sent to the server, and the server's authoritative answer eventually arrives and overwrites you. That's prediction + reconciliation. We don't need it because the client is authoritative over its own position.</p>
+
+  <h3>Heartbeat / dead connection detection</h3>
+  <p>TCP can keep a connection in a "half-open" state for many minutes after the other side has actually disappeared (closed laptop, dead Wi-Fi). The server pings every 30 seconds; if a client doesn't respond by the next ping, we terminate the socket. Without this, you'd see "ghost" players that never leave.</p>
+</section>
+
+<section id="security">
+  <h2>7. Security &amp; cheating</h2>
+  <p>Anyone with the browser dev tools can open a WebSocket to your server and send anything they want. Assume every client message is hostile and validate accordingly. For doodler, the realistic threats are:</p>
+  <ul>
+    <li><strong>Teleport / fly hacks.</strong> Bad client sends huge position deltas. <em>Mitigation:</em> server caps the delta per update (currently 10m²).</li>
+    <li><strong>Spam.</strong> A client sends 1000 chat messages per second. <em>Mitigation (todo):</em> per-connection rate limit, e.g. token bucket of 5 messages / 10 seconds.</li>
+    <li><strong>Giant drawings.</strong> A bad client uploads a 50 MB PNG. <em>Mitigation (todo):</em> cap the drawing size on receipt (e.g. reject &gt; 200 KB) and validate it's actually a PNG.</li>
+    <li><strong>Inappropriate content.</strong> Someone draws something objectionable. <em>Mitigation:</em> moderation tools (kick, IP-ban), report button, optionally a content classifier on join.</li>
+    <li><strong>DoS by connection flood.</strong> Open thousands of sockets. <em>Mitigation:</em> per-IP connection limit at the reverse proxy.</li>
+  </ul>
+  <div class="callout">
+    <strong>Rule of thumb:</strong> if a number coming from the client can crash your server or affect other players, validate it on the server. Client-side validation is for UX only.
+  </div>
+</section>
+
+<section id="prod">
+  <h2>8. Production checklist</h2>
+  <ul>
+    <li>Reverse proxy (Caddy/nginx) with TLS, proxying <code>/ws</code> to Node.</li>
+    <li>Process manager (<code>pm2</code> or systemd) with auto-restart on crash.</li>
+    <li>Per-IP rate limit at the proxy layer (helps with chat spam and connection floods).</li>
+    <li>Server-side caps: max drawing size, max chat length (currently 120 chars — already in place), max movement delta.</li>
+    <li>Heartbeat already enabled (30 s ping/pong) — don't disable it.</li>
+    <li>Log connect/disconnect events somewhere persistent so you can see usage patterns.</li>
+    <li>Static client uploaded to a CDN, pointing its WebSocket URL at <code>wss://your-domain/ws</code>.</li>
+    <li>Plan for restarts: when you redeploy the Node server, all current sockets drop. The client auto-reconnects? (right now it does not — worth adding before you ship.)</li>
+    <li>Monitoring: at minimum, an uptime ping. At best, log player count over time.</li>
+  </ul>
+</section>
+
+<footer>
+  written for doodler · realtime browser presence demo
+</footer>
+
+</div>
+</body>
+</html>
