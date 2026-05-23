@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>doodler</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <title>freeknet</title>
   <style>
     html, body {
       margin: 0;
@@ -14,7 +14,13 @@
       background: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       color: #222;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-user-select: none;
+      user-select: none;
+      overscroll-behavior: none;
     }
+
+    /* ---------- draw phase ---------- */
     #draw-phase {
       position: fixed;
       inset: 0;
@@ -22,8 +28,10 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 16px;
+      gap: 12px;
       background: #ffffff;
+      padding: 12px;
+      box-sizing: border-box;
     }
     #draw-phase h1 {
       font-weight: 300;
@@ -36,6 +44,7 @@
       font-size: 13px;
       color: #999;
       margin: 0;
+      text-align: center;
     }
     #draw-canvas {
       border: 2px solid #222;
@@ -43,24 +52,43 @@
       cursor: crosshair;
       touch-action: none;
       background: #ffffff;
+      /* scale to fit while preserving 500:750 = 2:3 aspect */
+      width: min(500px, 92vw, calc((100vh - 180px) * (2 / 3)));
+      height: auto;
+      aspect-ratio: 2 / 3;
+      max-height: calc(100vh - 180px);
     }
     #draw-controls {
       display: flex;
       gap: 12px;
-      margin-top: 8px;
+      margin-top: 4px;
     }
     button {
       font: inherit;
-      padding: 8px 18px;
+      padding: 10px 20px;
       background: #fff;
       border: 1px solid #bbb;
       cursor: pointer;
       border-radius: 2px;
       color: #333;
+      touch-action: manipulation;
     }
     button:hover { background: #f3f3f3; }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
 
+    /* compact landscape phones: shrink heading + hint so canvas wins space */
+    @media (max-height: 500px) and (orientation: landscape) {
+      #draw-phase { gap: 6px; padding: 6px; }
+      #draw-phase h1 { font-size: 14px; }
+      #draw-phase .hint { font-size: 11px; }
+      #draw-canvas {
+        width: auto;
+        height: min(calc(100vh - 90px), 92vh);
+        max-height: calc(100vh - 90px);
+      }
+    }
+
+    /* ---------- game phase ---------- */
     #game-phase {
       position: fixed;
       inset: 0;
@@ -70,36 +98,174 @@
       display: block;
       width: 100%;
       height: 100%;
+      touch-action: none;
     }
 
     #chat-bar {
       position: fixed;
-      bottom: 16px;
+      bottom: max(16px, env(safe-area-inset-bottom));
       left: 50%;
       transform: translateX(-50%);
       width: min(500px, 80vw);
       display: none;
+      z-index: 30;
     }
     #chat-bar input {
       width: 100%;
-      padding: 8px 12px;
+      padding: 10px 14px;
       border: 1px solid #ccc;
-      background: rgba(255,255,255,0.9);
+      background: rgba(255,255,255,0.95);
       font: inherit;
+      font-size: 16px; /* >=16px prevents iOS zoom on focus */
       outline: none;
-      border-radius: 2px;
+      border-radius: 4px;
+      box-sizing: border-box;
     }
 
+    #repo-links {
+      position: fixed;
+      top: max(12px, env(safe-area-inset-top));
+      left: max(12px, env(safe-area-inset-left));
+      font-size: 12px;
+      color: #888;
+      z-index: 25;
+    }
+    #repo-links a {
+      color: #555;
+      text-decoration: none;
+      border-bottom: 1px dotted #aaa;
+    }
+    #repo-links a:hover {
+      color: #000;
+      border-bottom-color: #333;
+    }
     #hud {
       position: fixed;
-      top: 12px;
-      left: 12px;
+      top: calc(max(12px, env(safe-area-inset-top)) + 22px);
+      left: max(12px, env(safe-area-inset-left));
       font-size: 12px;
       color: #888;
       pointer-events: none;
       display: none;
     }
     #hud .row { margin-bottom: 2px; }
+
+    /* ---------- mobile touch UI ---------- */
+    .touch-ui {
+      display: none;
+      position: fixed;
+      pointer-events: none;
+      z-index: 20;
+    }
+    body.touch .touch-ui { display: block; }
+    body.touch.chatting .touch-ui { display: none; }
+    body.touch #hud { display: none !important; }
+
+    .joystick {
+      position: fixed;
+      bottom: max(28px, env(safe-area-inset-bottom));
+      width: 130px;
+      height: 130px;
+      pointer-events: auto;
+      touch-action: none;
+      z-index: 20;
+      display: none;
+    }
+    body.touch .joystick { display: block; }
+    body.touch.chatting .joystick { display: none; }
+    .joystick-left  { left: max(20px, env(safe-area-inset-left)); }
+    .joystick-right { right: max(20px, env(safe-area-inset-right)); }
+    .joystick-base {
+      position: absolute;
+      inset: 15px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.06);
+      border: 1.5px solid rgba(0, 0, 0, 0.18);
+      box-sizing: border-box;
+    }
+    .joystick-thumb {
+      position: absolute;
+      width: 56px;
+      height: 56px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1.5px solid rgba(0, 0, 0, 0.35);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+      transition: background 0.12s;
+    }
+    .joystick.active .joystick-thumb {
+      background: rgba(255, 255, 255, 1);
+      border-color: rgba(0, 0, 0, 0.55);
+    }
+    .joystick-label {
+      position: absolute;
+      bottom: -18px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 10px;
+      color: rgba(0, 0, 0, 0.35);
+      letter-spacing: 0.08em;
+      pointer-events: none;
+    }
+
+    #jump-btn {
+      position: fixed;
+      right: calc(max(20px, env(safe-area-inset-right)) + 150px);
+      bottom: calc(max(28px, env(safe-area-inset-bottom)) + 30px);
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1.5px solid rgba(0, 0, 0, 0.35);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      color: rgba(0, 0, 0, 0.6);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      pointer-events: auto;
+      touch-action: manipulation;
+      z-index: 20;
+      padding: 0;
+      user-select: none;
+    }
+    body.touch #jump-btn { display: flex; }
+    body.touch.chatting #jump-btn { display: none; }
+    #jump-btn.pressed {
+      background: rgba(255, 255, 255, 1);
+      border-color: rgba(0, 0, 0, 0.6);
+      transform: scale(0.92);
+    }
+
+    /* on touch devices, raise the chat input above the joysticks */
+    body.touch #chat-bar {
+      bottom: calc(max(28px, env(safe-area-inset-bottom)) + 145px);
+    }
+    body.touch.chatting #chat-bar {
+      /* while typing, visualViewport JS positions it above the keyboard */
+      bottom: max(16px, env(safe-area-inset-bottom));
+    }
+
+    /* narrow landscape: smaller joysticks so they don't dominate the screen */
+    @media (orientation: landscape) and (max-height: 500px) {
+      .joystick { width: 110px; height: 110px; bottom: max(24px, env(safe-area-inset-bottom)); }
+      .joystick-thumb { width: 46px; height: 46px; }
+      body.touch #chat-bar {
+        bottom: calc(max(24px, env(safe-area-inset-bottom)) + 120px);
+      }
+      #jump-btn {
+        width: 54px; height: 54px; font-size: 10px;
+        right: calc(max(20px, env(safe-area-inset-right)) + 130px);
+        bottom: calc(max(24px, env(safe-area-inset-bottom)) + 28px);
+      }
+    }
   </style>
 </head>
 <body>
@@ -115,12 +281,29 @@
 
   <div id="game-phase">
     <canvas id="game-canvas"></canvas>
+    <div id="repo-links">
+      <a href="https://github.com/stewratt/freeknet" target="_blank" rel="noopener">freeknet</a>
+      ·
+      <a href="https://github.com/jackharrhy/freeknet-bot" target="_blank" rel="noopener">freeknet-bot</a>
+    </div>
     <div id="hud">
-      <div class="row">WASD move · right-drag rotate camera</div>
+      <div class="row">WASD move · space to jump · right-drag rotate camera</div>
       <div class="row">T to chat · Enter to send · Esc to cancel</div>
     </div>
+
+    <div id="joystick-move" class="joystick joystick-left">
+      <div class="joystick-label">MOVE</div>
+      <div class="joystick-base"></div>
+      <div class="joystick-thumb"></div>
+    </div>
+    <div id="joystick-look" class="joystick joystick-right">
+      <div class="joystick-label">LOOK</div>
+      <div class="joystick-base"></div>
+      <div class="joystick-thumb"></div>
+    </div>
+    <button id="jump-btn" type="button" aria-label="jump">JUMP</button>
     <div id="chat-bar">
-      <input id="chat-input" type="text" maxlength="120" placeholder="say something..." />
+      <input id="chat-input" type="text" maxlength="120" placeholder="say something..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
     </div>
   </div>
 

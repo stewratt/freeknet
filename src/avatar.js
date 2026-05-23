@@ -28,6 +28,8 @@ export function createAvatarFromCanvas(canvas) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.userData.walkPhase = 0;
+  // YXZ so billboard yaw (Y) is applied first, then bow tilt (X) is forward-toward-camera
+  mesh.rotation.order = 'YXZ';
   return mesh;
 }
 

@@ -102,42 +102,78 @@ export class ChatManager {
   }
 }
 
-export function setupChatInput({ onSend }) {
+export function setupChatInput({ onSend, onCommand }) {
   const input = document.getElementById('chat-input');
+  const chatBar = document.getElementById('chat-bar');
 
-  // active mirrors whether the input has focus — true whether user pressed T or clicked it
   function isActive() {
     return document.activeElement === input;
+  }
+
+  function open() {
+    document.body.classList.add('chatting');
+    input.focus();
+    // iOS sometimes ignores focus from a non-trusted event; nudge it
+    setTimeout(() => input.focus({ preventScroll: true }), 0);
   }
 
   function close() {
     input.value = '';
     input.blur();
+    document.body.classList.remove('chatting');
+    chatBar.style.bottom = '';
   }
 
-  // T to focus from anywhere outside an input/textarea
+  // T to focus on desktop
   window.addEventListener('keydown', (e) => {
     if (isActive()) return;
     if ((e.key === 't' || e.key === 'T') && !e.repeat) {
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       e.preventDefault();
-      input.focus();
+      open();
     }
   });
 
-  // handle send/cancel on the input itself so it works whether you pressed T or clicked
+  input.addEventListener('focus', () => {
+    document.body.classList.add('chatting');
+  });
+  input.addEventListener('blur', () => {
+    document.body.classList.remove('chatting');
+    chatBar.style.bottom = '';
+  });
+
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const text = input.value.trim();
-      if (text) onSend(text);
+      if (text.startsWith('/')) {
+        onCommand?.(text);
+      } else if (text) {
+        onSend(text);
+      }
       close();
     } else if (e.key === 'Escape') {
       e.preventDefault();
       close();
     }
   });
+
+  // reposition input above the on-screen keyboard
+  if (window.visualViewport) {
+    const onViewport = () => {
+      if (!isActive()) {
+        chatBar.style.bottom = '';
+        return;
+      }
+      const vv = window.visualViewport;
+      const keyboardInset = window.innerHeight - (vv.height + vv.offsetTop);
+      const offset = Math.max(0, keyboardInset);
+      chatBar.style.bottom = `calc(${offset}px + 12px)`;
+    };
+    window.visualViewport.addEventListener('resize', onViewport);
+    window.visualViewport.addEventListener('scroll', onViewport);
+  }
 
   return { isActive };
 }

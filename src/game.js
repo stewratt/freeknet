@@ -4,13 +4,22 @@ import { setupControls } from './controls.js';
 import { Network } from './network.js';
 import { ChatManager, setupChatInput } from './chat.js';
 import { createAvatarFromDataURL } from './avatar.js';
+import { createStage } from './stage.js';
+import { Ball } from './ball.js';
 
 const MOVE_SEND_INTERVAL = 1 / 15;
 
 export function startGame(drawingCanvas) {
   const canvas = document.getElementById('game-canvas');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  const isTouch =
+    (window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches) ||
+    ('ontouchstart' in window && navigator.maxTouchPoints > 0);
+  if (isTouch) document.body.classList.add('touch');
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouch });
+  const dprCap = isTouch ? 1.5 : 2;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, dprCap));
   renderer.setSize(window.innerWidth, window.innerHeight);
   const HORIZON_COLOR = 0xf2f2f2;
   renderer.setClearColor(HORIZON_COLOR, 1);
@@ -83,6 +92,9 @@ export function startGame(drawingCanvas) {
   grid.material.depthWrite = false;
   scene.add(grid);
 
+  const { colliders } = createStage(scene);
+  const ball = new Ball(scene);
+
   const local = new LocalPlayer(drawingCanvas);
   scene.add(local.group);
 
@@ -91,11 +103,22 @@ export function startGame(drawingCanvas) {
 
   const chatInput = setupChatInput({
     onSend: (text) => network.sendChat(text),
+    onCommand: (cmd) => {
+      const word = cmd.trim().toLowerCase().split(/\s+/)[0];
+      if (word === '/dance') {
+        const on = local.toggleDance();
+        network.sendEmote('dance', on);
+      } else if (word === '/bow') {
+        local.startBow();
+        network.sendEmote('bow');
+      }
+    },
   });
 
-  const { input, camera: camCtl } = setupControls(canvas, {
+  const controls = setupControls(canvas, {
     isChatActive: () => chatInput.isActive(),
   });
+  const { input, camera: camCtl } = controls;
 
   const chat = new ChatManager(
     scene,
@@ -144,10 +167,19 @@ export function startGame(drawingCanvas) {
     },
     onUpdate: (msg) => {
       const rp = remotes.get(msg.id);
-      if (rp) rp.pushUpdate(msg.x, msg.z);
+      if (rp) rp.pushUpdate(msg.x, msg.y ?? 0, msg.z);
     },
     onChat: (msg) => {
       chat.add(msg.id, msg.text);
+    },
+    onEmote: (msg) => {
+      const rp = remotes.get(msg.id);
+      if (!rp) return;
+      if (msg.name === 'dance') rp.setDance(!!msg.on);
+      else if (msg.name === 'bow') rp.startBow();
+    },
+    onBall: (msg) => {
+      ball.receiveState(msg.x, msg.y, msg.z, msg.vx ?? 0, msg.vy ?? 0, msg.vz ?? 0);
     },
   });
   network.connect();
@@ -173,7 +205,8 @@ export function startGame(drawingCanvas) {
   function frame() {
     const dt = Math.min(clock.getDelta(), 1 / 20);
 
-    local.update(dt, input, camCtl.yaw);
+    controls.update(dt);
+    local.update(dt, input, camCtl.yaw, colliders);
 
     const cy = Math.cos(camCtl.yaw);
     const sy = Math.sin(camCtl.yaw);
@@ -194,12 +227,13 @@ export function startGame(drawingCanvas) {
       rp.update(dt, camera.position);
     }
 
+    ball.update(dt);
     chat.update(dt);
 
     moveSendTimer += dt;
     if (moveSendTimer >= MOVE_SEND_INTERVAL && network.connected && network.id) {
       moveSendTimer = 0;
-      network.sendMove(local.position.x, local.position.z, camCtl.yaw);
+      network.sendMove(local.position.x, local.position.y, local.position.z, camCtl.yaw);
     }
 
     renderer.render(scene, camera);

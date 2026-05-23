@@ -10,7 +10,7 @@ export class Network {
 
   connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${proto}//${location.hostname}:8080`;
+    const url = `${proto}//${location.host}/ws`;
     this.ws = new WebSocket(url);
 
     this.ws.addEventListener('open', () => {
@@ -75,6 +75,14 @@ export class Network {
       case 'chat':
         this.handlers.onChat?.(msg);
         break;
+
+      case 'emote':
+        this.handlers.onEmote?.(msg);
+        break;
+
+      case 'ball':
+        this.handlers.onBall?.(msg);
+        break;
     }
   }
 
@@ -88,11 +96,17 @@ export class Network {
     this.send({ t: 'join', drawing: drawingDataURL });
   }
 
-  sendMove(x, z, rotY) {
-    this.send({ t: 'move', x, z, rotY });
+  sendMove(x, y, z, rotY) {
+    this.send({ t: 'move', x, y, z, rotY });
   }
 
   sendChat(text) {
     this.send({ t: 'chat', text });
+  }
+
+  sendEmote(name, on) {
+    const msg = { t: 'emote', name };
+    if (typeof on === 'boolean') msg.on = on;
+    this.send(msg);
   }
 }
