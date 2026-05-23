@@ -357,5 +357,5 @@ wss.on('close', () => {
 });
 
 httpServer.listen(PORT, HOST, () => {
-  console.log(`doodler listening on http://${HOST}:${PORT}  (ws path: /ws)`);
+  console.log(`freeknet listening on http://${HOST}:${PORT}  (ws path: /ws)`);
 });

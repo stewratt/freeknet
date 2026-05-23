@@ -1,16 +1,16 @@
 [Unit]
-Description=doodler — multiplayer 3D sketch world
+Description=freeknet — multiplayer 3D sketch world
 After=network.target
 
 [Service]
 Type=simple
-User=doodler
-Group=doodler
-WorkingDirectory=/opt/doodler
+User=freeknet
+Group=freeknet
+WorkingDirectory=/opt/freeknet
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=HOST=0.0.0.0
-ExecStart=/usr/bin/node /opt/doodler/server.js
+ExecStart=/usr/bin/node /opt/freeknet/server.js
 Restart=on-failure
 RestartSec=2
 

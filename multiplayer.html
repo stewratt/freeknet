@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>doodler — multiplayer notes</title>
+<title>freeknet — multiplayer notes</title>
 <style>
   :root {
     --ink: #111;
@@ -207,7 +207,7 @@
 <div class="wrap">
 
 <header>
-  <div class="meta">doodler · technical notes</div>
+  <div class="meta">freeknet · technical notes</div>
   <h1>How the multiplayer works</h1>
   <p class="lede">A primer on the realtime architecture behind this project, the infrastructure you need to keep it alive, and the realtime-game concepts worth knowing.</p>
 </header>
@@ -234,7 +234,7 @@
     <tr><td>Authoritative relay (this)</td><td>Server forwards messages and holds state, but doesn't simulate physics.</td><td>Cheap, simple, works for casual presence apps. Clients can still cheat their own position.</td></tr>
     <tr><td>Authoritative simulator</td><td>Server actually runs the physics/game logic; clients just send inputs.</td><td>Cheat-resistant, used in competitive games. Much more CPU and code.</td></tr>
   </table>
-  <p>Doodler is the middle one. The server doesn't care whether your "movement" obeys physics — it just rebroadcasts what you say. (We do clamp movement deltas to prevent obvious teleport griefing, but that's the extent of validation.)</p>
+  <p>Freeknet is the middle one. The server doesn't care whether your "movement" obeys physics — it just rebroadcasts what you say. (We do clamp movement deltas to prevent obvious teleport griefing, but that's the extent of validation.)</p>
 </section>
 
 <section id="flow">
@@ -325,9 +325,9 @@
   <p>If your site is served over HTTPS, browsers <strong>require</strong> the WebSocket also be encrypted (<code>wss://</code>, not <code>ws://</code>). Easiest path: put Caddy in front, point it at your domain, it gets a free Let's Encrypt cert and proxies WebSocket to your Node server automatically.</p>
 
 <pre><code># Caddyfile — full TLS + WS proxy in 4 lines
-doodler.example.com {
+freeknet.example.com {
   reverse_proxy /ws ws://localhost:8080
-  root * /var/www/doodler
+  root * /var/www/freeknet
   file_server
 }</code></pre>
 
@@ -390,7 +390,7 @@ doodler.example.com {
 
 <section id="security">
   <h2>7. Security &amp; cheating</h2>
-  <p>Anyone with the browser dev tools can open a WebSocket to your server and send anything they want. Assume every client message is hostile and validate accordingly. For doodler, the realistic threats are:</p>
+  <p>Anyone with the browser dev tools can open a WebSocket to your server and send anything they want. Assume every client message is hostile and validate accordingly. For freeknet, the realistic threats are:</p>
   <ul>
     <li><strong>Teleport / fly hacks.</strong> Bad client sends huge position deltas. <em>Mitigation:</em> server caps the delta per update (currently 10m²).</li>
     <li><strong>Spam.</strong> A client sends 1000 chat messages per second. <em>Mitigation (todo):</em> per-connection rate limit, e.g. token bucket of 5 messages / 10 seconds.</li>
@@ -419,7 +419,7 @@ doodler.example.com {
 </section>
 
 <footer>
-  written for doodler · realtime browser presence demo
+  written for freeknet · realtime browser presence demo
 </footer>
 
 </div>

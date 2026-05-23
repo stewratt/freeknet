@@ -1,4 +1,4 @@
-# doodler
+# freeknet
 
 A tiny multiplayer 3D sketch world. Draw yourself on a 2D canvas, then walk around as that drawing in a shared Three.js space with anyone else who's online.
 
@@ -73,29 +73,29 @@ npm run dev      # vite dev server only
 
 ## Production deployment
 
-Currently deployed to a Hetzner box at `178.156.249.95` (Ubuntu 24.04). The box also runs an unrelated `zyme-gallery` Flask app behind nginx on port 80, which is why doodler lives on **port 3000** instead.
+Currently deployed to a Hetzner box at `178.156.249.95` (Ubuntu 24.04). The box also runs an unrelated `zyme-gallery` Flask app behind nginx on port 80, which is why freeknet lives on **port 3000** instead.
 
 ### Layout on the server
 
 ```
-/opt/doodler/
+/opt/freeknet/
 ├── dist/                  # built frontend (output of `vite build`)
 ├── server.js              # serves dist/ + WS on PORT (3000)
 ├── package.json
 ├── package-lock.json
 └── node_modules/          # production deps only (ws)
 
-/etc/systemd/system/doodler.service   # systemd unit, runs as user `doodler`
+/etc/systemd/system/freeknet.service   # systemd unit, runs as user `freeknet`
 ```
 
-The `doodler` system user owns `/opt/doodler` and runs the process. The systemd unit:
+The `freeknet` system user owns `/opt/freeknet` and runs the process. The systemd unit:
 
 - `Type=simple`, restarts on failure, `WantedBy=multi-user.target`
 - `Environment=PORT=3000 HOST=0.0.0.0`
 - Hardening: `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=full`, `ProtectHome`
 - `AmbientCapabilities=CAP_NET_BIND_SERVICE` (unused at port 3000, but lets us drop to 80 later without changing the unit)
 
-Source for the unit lives in [`deploy/doodler.service`](deploy/doodler.service).
+Source for the unit lives in [`deploy/freeknet.service`](deploy/freeknet.service).
 
 ### Pushing updates
 
@@ -109,17 +109,17 @@ After editing anything in `src/`, `index.html`, `server.js`, or `package.json`:
 
 1. `vite build` locally → `dist/`
 2. Compares local `package-lock.json` to the remote; flags `DEPS_CHANGED` if different
-3. `rsync -az --delete` of `dist/ server.js package.json package-lock.json` → `root@178.156.249.95:/opt/doodler/`
-4. If deps changed, runs `sudo -u doodler npm ci --omit=dev` on the box
-5. `systemctl restart doodler`
+3. `rsync -az --delete` of `dist/ server.js package.json package-lock.json` → `root@178.156.249.95:/opt/freeknet/`
+4. If deps changed, runs `sudo -u freeknet npm ci --omit=dev` on the box
+5. `systemctl restart freeknet`
 6. Hits `/healthz` to verify
 
 Override the target via env if you ever move the deployment:
 
 ```bash
-DOODLER_SERVER=root@new-host \
-DOODLER_REMOTE_DIR=/srv/doodler \
-DOODLER_URL=https://doodler.example.com \
+FREEKNET_SERVER=root@new-host \
+FREEKNET_REMOTE_DIR=/srv/freeknet \
+FREEKNET_URL=https://freeknet.example.com \
 ./deploy.sh
 ```
 
@@ -128,10 +128,10 @@ DOODLER_URL=https://doodler.example.com \
 ```bash
 ssh root@178.156.249.95
 
-systemctl status doodler        # is it running?
-journalctl -u doodler -f        # tail logs live
-journalctl -u doodler -n 100    # last 100 lines
-systemctl restart doodler       # restart (e.g. after manual edits)
+systemctl status freeknet        # is it running?
+journalctl -u freeknet -f        # tail logs live
+journalctl -u freeknet -n 100    # last 100 lines
+systemctl restart freeknet       # restart (e.g. after manual edits)
 ss -tlnp | grep :3000           # confirm bound to 3000
 
 ufw status                      # firewall rules
@@ -141,7 +141,7 @@ Player count is whatever's in `players` Map — peek at it via `journalctl` or a
 
 ### Firewall
 
-UFW allows: 22 (ssh), 80 (nginx → zyme), 443 (reserved), 3000 (doodler), 25565 (minecraft). Don't `ufw reset` without re-adding these.
+UFW allows: 22 (ssh), 80 (nginx → zyme), 443 (reserved), 3000 (freeknet), 25565 (minecraft). Don't `ufw reset` without re-adding these.
 
 ### Initial setup (already done — keep for redeploy from scratch)
 
@@ -151,13 +151,13 @@ If you ever rebuild the box:
 ssh root@<new-ip>
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y nodejs
-useradd --system --home /opt/doodler --shell /usr/sbin/nologin doodler
-mkdir -p /opt/doodler && chown -R doodler:doodler /opt/doodler
+useradd --system --home /opt/freeknet --shell /usr/sbin/nologin freeknet
+mkdir -p /opt/freeknet && chown -R freeknet:freeknet /opt/freeknet
 
 # from local
-scp deploy/doodler.service root@<new-ip>:/etc/systemd/system/doodler.service
-./deploy.sh   # after pointing DOODLER_SERVER at the new host
-ssh root@<new-ip> 'systemctl daemon-reload && systemctl enable --now doodler && ufw allow 3000/tcp'
+scp deploy/freeknet.service root@<new-ip>:/etc/systemd/system/freeknet.service
+./deploy.sh   # after pointing FREEKNET_SERVER at the new host
+ssh root@<new-ip> 'systemctl daemon-reload && systemctl enable --now freeknet && ufw allow 3000/tcp'
 ```
 
 ## Files
@@ -177,7 +177,7 @@ ssh root@<new-ip> 'systemctl daemon-reload && systemctl enable --now doodler && 
 | `multiplayer.html` | Standalone design/spec page describing the protocol |
 | `vite.config.js` | Dev server + `/ws` proxy to localhost:8080 |
 | `deploy.sh` | Local → production push |
-| `deploy/doodler.service` | systemd unit (source of truth for the live one) |
+| `deploy/freeknet.service` | systemd unit (source of truth for the live one) |
 
 ## Wire protocol
 
