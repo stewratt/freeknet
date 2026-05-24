@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Push local changes live to http://178.156.249.95:3000/
-# Usage: ./deploy.sh
+# Usage from repo root: ./deploy/deploy.sh   (or `npm run deploy`)
 
 set -euo pipefail
 
@@ -8,10 +8,11 @@ SERVER="${FREEKNET_SERVER:-root@178.156.249.95}"
 REMOTE_DIR="${FREEKNET_REMOTE_DIR:-/opt/freeknet}"
 URL="${FREEKNET_URL:-http://178.156.249.95:3000}"
 
-cd "$(dirname "$0")"
+# cd to the repo root (this script lives in deploy/)
+cd "$(dirname "$0")/.."
 
-echo "==> building"
-npx vite build
+echo "==> building (vite + esbuild bundle of server.ts)"
+npm run build
 
 # Detect whether deps changed since last deploy (compare local lockfile to remote)
 DEPS_CHANGED=0

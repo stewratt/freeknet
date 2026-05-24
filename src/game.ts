@@ -1,16 +1,47 @@
 import * as THREE from 'three';
-import { LocalPlayer, RemotePlayer } from './player.js';
-import { setupControls } from './controls.js';
-import { Network } from './network.js';
-import { ChatManager, setupChatInput } from './chat.js';
-import { createAvatarFromDataURL } from './avatar.js';
-import { createStage } from './stage.js';
-import { Ball } from './ball.js';
+import { World } from '@perplexdotgg/bounce';
+import { LocalPlayer, RemotePlayer } from './player';
+import { setupControls } from './controls';
+import { Network } from './network';
+import { ChatManager, setupChatInput } from './chat';
+import { createAvatarFromDataURL } from './avatar';
+import { createStage } from './stage';
+import { Ball } from './ball';
+import { createSky, HORIZON_COLOR } from './sky';
+import { createFloor, createGrid } from './world';
+import { createCamera, follow } from './camera';
+import { VoiceManager, setupVoiceUI } from './voice';
 
 const MOVE_SEND_INTERVAL = 1 / 15;
 
-export function startGame(drawingCanvas) {
-  const canvas = document.getElementById('game-canvas');
+interface Query {
+  isBot: boolean;
+}
+
+function parseQuery(): Query {
+  const params = new URLSearchParams(location.search);
+  return {
+    isBot: params.get('bot') === '1' || params.get('bot') === 'true',
+  };
+}
+
+declare global {
+  interface Window {
+    __game?: {
+      network: Network;
+      local: LocalPlayer;
+      remotes: Map<string, RemotePlayer>;
+      scene: THREE.Scene;
+      renderer: THREE.WebGLRenderer;
+      chat: ChatManager;
+      voice: VoiceManager;
+    };
+  }
+}
+
+export function startGame(drawingCanvas: HTMLCanvasElement): void {
+  const { isBot } = parseQuery();
+  const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
   const isTouch =
     (window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches) ||
@@ -21,85 +52,34 @@ export function startGame(drawingCanvas) {
   const dprCap = isTouch ? 1.5 : 2;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, dprCap));
   renderer.setSize(window.innerWidth, window.innerHeight);
-  const HORIZON_COLOR = 0xf2f2f2;
   renderer.setClearColor(HORIZON_COLOR, 1);
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(HORIZON_COLOR, 30, 90);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xeeeeee, 1.0));
+  scene.add(createSky());
+  scene.add(createFloor());
+  scene.add(createGrid());
 
-  const camera = new THREE.PerspectiveCamera(
-    60,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-  );
+  const camera = createCamera(window.innerWidth / window.innerHeight);
 
-  const hemi = new THREE.HemisphereLight(0xffffff, 0xeeeeee, 1.0);
-  scene.add(hemi);
-
-  // gradient skydome
-  const skyMat = new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    depthWrite: false,
-    uniforms: {
-      topColor:    { value: new THREE.Color(0xdde6f0) },
-      horizonColor:{ value: new THREE.Color(0xf2f2f2) },
-      groundColor: { value: new THREE.Color(0xe6e6e6) },
-      exponent:    { value: 0.7 },
-    },
-    vertexShader: `
-      varying vec3 vWorld;
-      void main() {
-        vec4 wp = modelMatrix * vec4(position, 1.0);
-        vWorld = wp.xyz;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform vec3 topColor;
-      uniform vec3 horizonColor;
-      uniform vec3 groundColor;
-      uniform float exponent;
-      varying vec3 vWorld;
-      void main() {
-        float h = normalize(vWorld).y;
-        vec3 col;
-        if (h > 0.0) {
-          col = mix(horizonColor, topColor, pow(h, exponent));
-        } else {
-          col = mix(horizonColor, groundColor, pow(-h, exponent));
-        }
-        gl_FragColor = vec4(col, 1.0);
-      }
-    `,
+  // client-side physics world: drives the local player's character
+  // controller and registers the static stage geometry so the controller
+  // can collide against it. the server has its own independent world for
+  // ball physics — neither knows about the other.
+  const physicsWorld = new World({
+    gravity: [0, -22, 0],
+    timeStepSizeSeconds: 1 / 60,
   });
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(500, 32, 16), skyMat);
-  scene.add(sky);
 
-  // floor: slightly darker than horizon so the meeting line reads
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(400, 400),
-    new THREE.MeshBasicMaterial({ color: 0xe6e6e6, fog: true })
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -0.001;
-  scene.add(floor);
-
-  // grid for spatial orientation
-  const grid = new THREE.GridHelper(200, 80, 0x999999, 0xc8c8c8);
-  grid.material.transparent = true;
-  grid.material.opacity = 0.6;
-  grid.material.depthWrite = false;
-  scene.add(grid);
-
-  const { colliders } = createStage(scene);
+  createStage(scene, physicsWorld);
   const ball = new Ball(scene);
 
-  const local = new LocalPlayer(drawingCanvas);
+  const local = new LocalPlayer(drawingCanvas, physicsWorld);
   scene.add(local.group);
 
-  const remotes = new Map();
-  const drawingsById = new Map();
+  const remotes = new Map<string, RemotePlayer>();
+  const drawingsById = new Map<string, string>();
 
   const chatInput = setupChatInput({
     onSend: (text) => network.sendChat(text),
@@ -129,13 +109,31 @@ export function startGame(drawingCanvas) {
       const r = remotes.get(id);
       return r ? new THREE.Vector3().copy(r.position) : null;
     },
-    camera
+    camera,
   );
 
+  const presenceEl = document.getElementById('presence');
+
+  // voice manager — wired before network so onRtc has somewhere to dispatch.
+  // bots and the voice-disabled env both skip the UI.
+  const voiceDisabled = import.meta.env?.VITE_DISABLE_VOICE === 'true' || isBot;
+  const voice = new VoiceManager({
+    getLocalId: () => network.id,
+    sendSignal: (to, payload) => network.sendRtc(to, payload),
+    getRemotes: () => remotes,
+    getLocalPosition: () => local.position,
+    getLocalYaw: () => camCtl.yaw,
+  });
+  if (!voiceDisabled) setupVoiceUI({ voice });
+
   const network = new Network({
-    onWelcome: (id) => {
+    onWelcome: () => {
       const dataURL = drawingCanvas.toDataURL('image/png');
       network.sendJoin(dataURL);
+    },
+    onPresence: ({ count }) => {
+      if (!presenceEl) return;
+      presenceEl.textContent = `${count} online`;
     },
     onJoin: async (p) => {
       if (p.id === network.id) return;
@@ -164,6 +162,7 @@ export function startGame(drawingCanvas) {
       }
       drawingsById.delete(id);
       chat.clearForPlayer(id);
+      voice.onPeerLeft(id);
     },
     onUpdate: (msg) => {
       const rp = remotes.get(msg.id);
@@ -181,17 +180,16 @@ export function startGame(drawingCanvas) {
     onBall: (msg) => {
       ball.receiveState(msg.x, msg.y, msg.z, msg.vx ?? 0, msg.vy ?? 0, msg.vz ?? 0);
     },
-  });
+    onRtc: (msg) => {
+      voice.onSignal(msg);
+    },
+  }, { isBot });
   network.connect();
 
-  window.__game = {
-    network,
-    local,
-    remotes,
-    scene,
-    renderer,
-    chat,
-  };
+  // expose game internals for smoke tests / debugging. dev only.
+  if (import.meta.env?.DEV) {
+    window.__game = { network, local, remotes, scene, renderer, chat, voice };
+  }
 
   window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -202,33 +200,22 @@ export function startGame(drawingCanvas) {
   const clock = new THREE.Clock();
   let moveSendTimer = 0;
 
-  function frame() {
+  function frame(): void {
     const dt = Math.min(clock.getDelta(), 1 / 20);
 
     controls.update(dt);
-    local.update(dt, input, camCtl.yaw, colliders);
-
-    const cy = Math.cos(camCtl.yaw);
-    const sy = Math.sin(camCtl.yaw);
-    const cp = Math.cos(camCtl.pitch);
-    const sp = Math.sin(camCtl.pitch);
-    const camOffset = new THREE.Vector3(
-      sy * cp * camCtl.distance,
-      sp * camCtl.distance + 1.5,
-      cy * cp * camCtl.distance
-    );
-    const target = new THREE.Vector3(local.position.x, local.position.y + 1.0, local.position.z);
-    camera.position.copy(target).add(camOffset);
-    camera.lookAt(target);
-
+    // step the physics world BEFORE the character controller's update, per
+    // bounce's recommendation. this resolves any pending dynamic bodies
+    // before the controller's shape-casts query the world.
+    physicsWorld.takeOneStep(dt);
+    local.update(dt, input, camCtl.yaw);
+    follow(camera, camCtl, local.position);
     local.billboardTo(camera.position);
 
-    for (const rp of remotes.values()) {
-      rp.update(dt, camera.position);
-    }
-
+    for (const rp of remotes.values()) rp.update(dt, camera.position);
     ball.update(dt);
     chat.update(dt);
+    voice.update(dt);
 
     moveSendTimer += dt;
     if (moveSendTimer >= MOVE_SEND_INTERVAL && network.connected && network.id) {

@@ -1,25 +1,34 @@
-export function setupDrawing({ onEnter }) {
-  const canvas = document.getElementById('draw-canvas');
-  const ctx = canvas.getContext('2d');
-  const enterBtn = document.getElementById('enter-btn');
-  const redrawBtn = document.getElementById('redraw-btn');
+interface SetupDrawingOpts {
+  onEnter: (canvas: HTMLCanvasElement) => void;
+}
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+export function setupDrawing({ onEnter }: SetupDrawingOpts): void {
+  const canvas = document.getElementById('draw-canvas') as HTMLCanvasElement;
+  const ctx = canvas.getContext('2d')!;
+  const enterBtn = document.getElementById('enter-btn') as HTMLButtonElement;
+  const redrawBtn = document.getElementById('redraw-btn') as HTMLButtonElement;
 
   let drawing = false;
   let finished = false;
-  let points = [];
+  let points: Point[] = [];
 
-  function clear() {
+  function clear(): void {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
-  function setupStroke() {
+  function setupStroke(): void {
     ctx.strokeStyle = '#111111';
     ctx.lineWidth = 4;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
   }
 
-  function reset() {
+  function reset(): void {
     drawing = false;
     finished = false;
     points = [];
@@ -29,7 +38,7 @@ export function setupDrawing({ onEnter }) {
     redrawBtn.disabled = true;
   }
 
-  function getPos(e) {
+  function getPos(e: PointerEvent): Point {
     const r = canvas.getBoundingClientRect();
     return {
       x: ((e.clientX - r.left) / r.width) * canvas.width,
@@ -37,7 +46,7 @@ export function setupDrawing({ onEnter }) {
     };
   }
 
-  function redraw() {
+  function redraw(): void {
     clear();
     setupStroke();
     if (points.length < 2) return;
@@ -71,7 +80,7 @@ export function setupDrawing({ onEnter }) {
     redraw();
   });
 
-  function endStroke() {
+  function endStroke(): void {
     if (!drawing) return;
     drawing = false;
     if (points.length < 2) {
