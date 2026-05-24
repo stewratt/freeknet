@@ -1,6 +1,7 @@
 # freeknet
 
-A tiny multiplayer 3D sketch world. Draw yourself on a 2D canvas, then walk around as that drawing in a shared Three.js space with anyone else who's online.
+Multiplayer 3D sketch world demo created by @smilebigforgod and @sstewrat
+
 
 Live: **http://178.156.249.95:3000/**
 
