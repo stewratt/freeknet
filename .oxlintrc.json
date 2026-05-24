@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    // game loops and physics tweaks deliberately use bare numbers
+    "no-magic-numbers": "off"
+  },
+  "ignorePatterns": [
+    "dist/",
+    "node_modules/",
+    "server.js"
+  ]
+}
