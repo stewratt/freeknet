@@ -40,10 +40,10 @@ export function createSky(radius = 500): THREE.Mesh {
     side: THREE.BackSide,
     depthWrite: false,
     uniforms: {
-      topColor:     { value: new THREE.Color(TOP_COLOR) },
+      topColor: { value: new THREE.Color(TOP_COLOR) },
       horizonColor: { value: new THREE.Color(HORIZON_COLOR) },
-      groundColor:  { value: new THREE.Color(GROUND_COLOR) },
-      exponent:     { value: 0.7 },
+      groundColor: { value: new THREE.Color(GROUND_COLOR) },
+      exponent: { value: 0.7 },
     },
     vertexShader: VERT,
     fragmentShader: FRAG,

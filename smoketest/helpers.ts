@@ -57,15 +57,30 @@ export async function drawAndEnter(page: Page, shape: 'V' | 'line' = 'line'): Pr
     const c = document.getElementById('draw-canvas') as HTMLCanvasElement;
     const r = c.getBoundingClientRect();
     function ev(type: string, x: number, y: number): void {
-      c.dispatchEvent(new PointerEvent(type, {
-        pointerId: 1, bubbles: true, cancelable: true,
-        clientX: x, clientY: y, pointerType: 'mouse',
-        button: 0, buttons: type === 'pointerup' ? 0 : 1,
-      }));
+      c.dispatchEvent(
+        new PointerEvent(type, {
+          pointerId: 1,
+          bubbles: true,
+          cancelable: true,
+          clientX: x,
+          clientY: y,
+          pointerType: 'mouse',
+          button: 0,
+          buttons: type === 'pointerup' ? 0 : 1,
+        }),
+      );
     }
-    const pts: Array<[number, number]> = shape === 'V'
-      ? [[100, 50], [r.width / 2, r.height - 50], [r.width - 100, 50]]
-      : [[r.width / 2, 50], [r.width / 2, r.height - 50]];
+    const pts: Array<[number, number]> =
+      shape === 'V'
+        ? [
+            [100, 50],
+            [r.width / 2, r.height - 50],
+            [r.width - 100, 50],
+          ]
+        : [
+            [r.width / 2, 50],
+            [r.width / 2, r.height - 50],
+          ];
     const abs: Array<[number, number]> = pts.map(([x, y]) => [r.left + x, r.top + y]);
     ev('pointerdown', abs[0][0], abs[0][1]);
     for (let i = 0; i < abs.length - 1; i++) {
@@ -268,7 +283,9 @@ export function makeRunner(): Runner {
       console.log(`  ${mark} ${r.name}`);
       for (const f of r.fails) console.log(`      ${f}`);
     }
-    console.log(`\n${failed.length === 0 ? '✅ PASS' : `❌ FAIL (${failed.length}/${results.length})`}`);
+    console.log(
+      `\n${failed.length === 0 ? '✅ PASS' : `❌ FAIL (${failed.length}/${results.length})`}`,
+    );
     return failed.length === 0;
   }
 

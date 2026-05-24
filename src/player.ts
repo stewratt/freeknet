@@ -99,7 +99,10 @@ export class LocalPlayer {
     let fx = input.mx || 0;
     let fz = input.mz || 0;
     const len = Math.hypot(fx, fz);
-    if (len > 1) { fx /= len; fz /= len; }
+    if (len > 1) {
+      fx /= len;
+      fz /= len;
+    }
 
     // rotate input from camera-relative to world-relative. (fz=-1 = forward
     // in the camera frame, which becomes movement toward the camera's facing.)
@@ -176,12 +179,14 @@ export class RemotePlayer {
     this.id = initial.id;
     this.position = new THREE.Vector3(initial.x ?? 0, initial.y ?? 0, initial.z ?? 0);
     this.group.position.copy(this.position);
-    this.buffer = [{
-      t: performance.now() / 1000,
-      x: this.position.x,
-      y: this.position.y,
-      z: this.position.z,
-    }];
+    this.buffer = [
+      {
+        t: performance.now() / 1000,
+        x: this.position.x,
+        y: this.position.y,
+        z: this.position.z,
+      },
+    ];
     this.dance = !!initial.dance;
   }
 
@@ -206,7 +211,8 @@ export class RemotePlayer {
 
   update(dt: number, cameraPos: THREE.Vector3): void {
     const target = performance.now() / 1000 - this.renderDelay;
-    let a = this.buffer[0], b = this.buffer[this.buffer.length - 1];
+    let a = this.buffer[0],
+      b = this.buffer[this.buffer.length - 1];
     for (let i = 0; i < this.buffer.length - 1; i++) {
       if (this.buffer[i].t <= target && this.buffer[i + 1].t >= target) {
         a = this.buffer[i];

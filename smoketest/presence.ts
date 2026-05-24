@@ -52,7 +52,7 @@ try {
     }
   });
 } catch (e) {
-  console.error("smoke setup crashed:", e);
+  console.error('smoke setup crashed:', e);
   process.exitCode = 1;
 } finally {
   const ok = summary();

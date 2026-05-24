@@ -9,7 +9,13 @@
 // occupies x ∈ [9.5, 15.5], z ∈ [-2.5, 2.5], top at y=0.7.
 
 import {
-  makeBrowser, newSession, drawAndEnter, snap, pressKey, sleep, makeRunner,
+  makeBrowser,
+  newSession,
+  drawAndEnter,
+  snap,
+  pressKey,
+  sleep,
+  makeRunner,
 } from './helpers';
 
 const browser = await makeBrowser();
@@ -22,8 +28,13 @@ try {
 
   await test('initial spawn is at origin, on the ground', async () => {
     const s = await snap(A.page);
-    if (!s.ready) { fail('game not ready'); return; }
-    const x = s.localX ?? 0, y = s.localY ?? 0, z = s.localZ ?? 0;
+    if (!s.ready) {
+      fail('game not ready');
+      return;
+    }
+    const x = s.localX ?? 0,
+      y = s.localY ?? 0,
+      z = s.localZ ?? 0;
     // small tolerance for capsule settling
     if (Math.abs(x) > 0.2 || Math.abs(z) > 0.2) fail(`spawn drifted: (${x}, ${y}, ${z})`);
     else pass(`spawn at (${x}, ${y}, ${z})`);
@@ -91,9 +102,13 @@ try {
     // we should still be near ground level (capsule rest), not stuck inside
     // the stage or shot up into the sky.
     if (y < -0.1 || y > 1.5) {
-      fail(`y out of plausible range after walking toward stage: ${y.toFixed(2)} (pos=${s.localX?.toFixed(2)}, _, ${s.localZ?.toFixed(2)})`);
+      fail(
+        `y out of plausible range after walking toward stage: ${y.toFixed(2)} (pos=${s.localX?.toFixed(2)}, _, ${s.localZ?.toFixed(2)})`,
+      );
     } else {
-      pass(`y=${y.toFixed(2)} at (${s.localX?.toFixed(2)}, _, ${s.localZ?.toFixed(2)}) (in plausible range)`);
+      pass(
+        `y=${y.toFixed(2)} at (${s.localX?.toFixed(2)}, _, ${s.localZ?.toFixed(2)}) (in plausible range)`,
+      );
     }
     // either we ran into the stage edge (x ≤ 9.5) or climbed onto it (y ≈ 0.7).
     // the old buggy code would snap us in weird ways. as long as no NaN/extreme:

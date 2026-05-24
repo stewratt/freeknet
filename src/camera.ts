@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 
-const TARGET_HEIGHT = 1.0;   // look at the player's chest, not their feet
+const TARGET_HEIGHT = 1.0; // look at the player's chest, not their feet
 const VERTICAL_OFFSET = 1.5; // camera floats above the orbit ring
 
 export interface CameraController {

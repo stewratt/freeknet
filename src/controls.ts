@@ -26,10 +26,7 @@ interface CancellableEl extends HTMLElement {
   _cancelStick?: () => void;
 }
 
-export function setupControls(
-  canvas: HTMLCanvasElement,
-  { isChatActive }: ControlsOpts,
-): Controls {
+export function setupControls(canvas: HTMLCanvasElement, { isChatActive }: ControlsOpts): Controls {
   const input: InputState = { mx: 0, mz: 0, jump: false };
 
   // keyboard intentions (kept separate so touch+keyboard don't fight)
@@ -41,7 +38,8 @@ export function setupControls(
   const camera: CameraController = { yaw: 0, pitch: 0.25, distance: 5 };
 
   let mouseDragging = false;
-  let lastX = 0, lastY = 0;
+  let lastX = 0,
+    lastY = 0;
   let moveTouchId: number | null = null;
   let lookTouchId: number | null = null;
 
@@ -56,13 +54,17 @@ export function setupControls(
   let pinchStartCamDist = 0;
 
   function updateKeyboardVector(): void {
-    let mx = 0, mz = 0;
+    let mx = 0,
+      mz = 0;
     if (key.forward) mz -= 1;
-    if (key.back)    mz += 1;
-    if (key.left)    mx -= 1;
-    if (key.right)   mx += 1;
+    if (key.back) mz += 1;
+    if (key.left) mx -= 1;
+    if (key.right) mx += 1;
     const len = Math.hypot(mx, mz);
-    if (len > 1) { mx /= len; mz /= len; }
+    if (len > 1) {
+      mx /= len;
+      mz /= len;
+    }
     // keyboard only writes into input when no touch stick is active
     if (moveTouchId === null) {
       input.mx = mx;
@@ -78,15 +80,28 @@ export function setupControls(
       return;
     }
     switch (code) {
-      case 'KeyW': case 'ArrowUp':    key.forward = down; break;
-      case 'KeyS': case 'ArrowDown':  key.back = down;    break;
-      case 'KeyA': case 'ArrowLeft':  key.left = down;    break;
-      case 'KeyD': case 'ArrowRight': key.right = down;   break;
+      case 'KeyW':
+      case 'ArrowUp':
+        key.forward = down;
+        break;
+      case 'KeyS':
+      case 'ArrowDown':
+        key.back = down;
+        break;
+      case 'KeyA':
+      case 'ArrowLeft':
+        key.left = down;
+        break;
+      case 'KeyD':
+      case 'ArrowRight':
+        key.right = down;
+        break;
       case 'Space':
         if (down && !key.spaceHeld) input.jump = true;
         key.spaceHeld = down;
         return;
-      default: return;
+      default:
+        return;
     }
     updateKeyboardVector();
   }
@@ -98,7 +113,10 @@ export function setupControls(
   window.addEventListener('keyup', (e) => setKey(e.code, false));
   window.addEventListener('blur', () => {
     key.forward = key.back = key.left = key.right = false;
-    if (moveTouchId === null) { input.mx = 0; input.mz = 0; }
+    if (moveTouchId === null) {
+      input.mx = 0;
+      input.mz = 0;
+    }
   });
 
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -129,15 +147,21 @@ export function setupControls(
   function endMouseDrag(e: PointerEvent): void {
     if (e.pointerType === 'touch') return;
     mouseDragging = false;
-    try { canvas.releasePointerCapture(e.pointerId); } catch {}
+    try {
+      canvas.releasePointerCapture(e.pointerId);
+    } catch {}
   }
   canvas.addEventListener('pointerup', endMouseDrag);
   canvas.addEventListener('pointercancel', endMouseDrag);
 
-  canvas.addEventListener('wheel', (e) => {
-    camera.distance += e.deltaY * 0.005;
-    camera.distance = Math.max(2, Math.min(12, camera.distance));
-  }, { passive: true });
+  canvas.addEventListener(
+    'wheel',
+    (e) => {
+      camera.distance += e.deltaY * 0.005;
+      camera.distance = Math.max(2, Math.min(12, camera.distance));
+    },
+    { passive: true },
+  );
 
   // ---------- touch joysticks ----------
 
@@ -202,7 +226,9 @@ export function setupControls(
       if (e.pointerId !== activeId) return;
       activeId = null;
       el!.classList.remove('active');
-      try { el!.releasePointerCapture(e.pointerId); } catch {}
+      try {
+        el!.releasePointerCapture(e.pointerId);
+      } catch {}
       resetThumb(thumb!);
       onEnd();
     }
@@ -221,12 +247,18 @@ export function setupControls(
     };
   }
 
-  attachStick(moveEl, moveThumb,
+  attachStick(
+    moveEl,
+    moveThumb,
     (nx, ny) => {
       moveTouchId = 1;
       const dead = 0.12;
       const mag = Math.hypot(nx, ny);
-      if (mag < dead) { input.mx = 0; input.mz = 0; return; }
+      if (mag < dead) {
+        input.mx = 0;
+        input.mz = 0;
+        return;
+      }
       const scaled = (mag - dead) / (1 - dead);
       const k = scaled / mag;
       input.mx = nx * k;
@@ -234,17 +266,24 @@ export function setupControls(
     },
     () => {
       moveTouchId = null;
-      input.mx = 0; input.mz = 0;
+      input.mx = 0;
+      input.mz = 0;
       updateKeyboardVector();
     },
   );
 
-  attachStick(lookEl, lookThumb,
+  attachStick(
+    lookEl,
+    lookThumb,
     (nx, ny) => {
       lookTouchId = 1;
       const dead = 0.15;
       const mag = Math.hypot(nx, ny);
-      if (mag < dead) { look.yawRate = 0; look.pitchRate = 0; return; }
+      if (mag < dead) {
+        look.yawRate = 0;
+        look.pitchRate = 0;
+        return;
+      }
       const scaled = (mag - dead) / (1 - dead);
       const k = scaled / mag;
       look.yawRate = nx * k;
@@ -252,7 +291,8 @@ export function setupControls(
     },
     () => {
       lookTouchId = null;
-      look.yawRate = 0; look.pitchRate = 0;
+      look.yawRate = 0;
+      look.pitchRate = 0;
     },
   );
 
@@ -293,7 +333,9 @@ export function setupControls(
       jumpBtn.classList.add('pressed');
       e.preventDefault();
     });
-    const release = (): void => { jumpBtn.classList.remove('pressed'); };
+    const release = (): void => {
+      jumpBtn.classList.remove('pressed');
+    };
     jumpBtn.addEventListener('pointerup', release);
     jumpBtn.addEventListener('pointercancel', release);
     jumpBtn.addEventListener('pointerleave', release);
@@ -301,8 +343,10 @@ export function setupControls(
 
   function update(dt: number): void {
     if (isChatActive()) {
-      input.mx = 0; input.mz = 0;
-      look.yawRate = 0; look.pitchRate = 0;
+      input.mx = 0;
+      input.mz = 0;
+      look.yawRate = 0;
+      look.pitchRate = 0;
       moveEl?._cancelStick?.();
       lookEl?._cancelStick?.();
       return;

@@ -2,8 +2,14 @@
 // while typing, and that consecutive messages REPLACE rather than stack.
 
 import {
-  makeBrowser, newSession, drawAndEnter, sleep,
-  chatCounts, inputState, currentBubble, makeRunner,
+  makeBrowser,
+  newSession,
+  drawAndEnter,
+  sleep,
+  chatCounts,
+  inputState,
+  currentBubble,
+  makeRunner,
 } from './helpers';
 
 const browser = await makeBrowser();
@@ -58,7 +64,10 @@ try {
     await A.page.bringToFront();
     const handle = await A.page.$('#chat-input');
     const box = await handle?.boundingBox();
-    if (!box) { fail('chat-input has no bounding box'); return; }
+    if (!box) {
+      fail('chat-input has no bounding box');
+      return;
+    }
     await A.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await sleep(200);
     await A.page.keyboard.type('clicked then typed');
@@ -117,7 +126,7 @@ try {
     }
   });
 } catch (e) {
-  console.error("smoke setup crashed:", e);
+  console.error('smoke setup crashed:', e);
   process.exitCode = 1;
 } finally {
   const ok = summary();

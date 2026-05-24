@@ -2,7 +2,13 @@
 // A chats and B receives it.
 
 import {
-  makeBrowser, newSession, drawAndEnter, snap, pressKey, sleep, makeRunner,
+  makeBrowser,
+  newSession,
+  drawAndEnter,
+  snap,
+  pressKey,
+  sleep,
+  makeRunner,
 } from './helpers';
 
 const browser = await makeBrowser();
@@ -18,8 +24,14 @@ try {
   await test('A and B see each other after both joined', async () => {
     const a = await snap(A.page);
     const b = await snap(B.page);
-    if (!a.ready) { fail('A game not ready (renderer init failed?)'); return; }
-    if (!b.ready) { fail('B game not ready (renderer init failed?)'); return; }
+    if (!a.ready) {
+      fail('A game not ready (renderer init failed?)');
+      return;
+    }
+    if (!b.ready) {
+      fail('B game not ready (renderer init failed?)');
+      return;
+    }
     if (a.remoteCount !== 1) fail(`A sees ${a.remoteCount} remotes, want 1`);
     else pass('A sees 1 remote');
     if (b.remoteCount !== 1) fail(`B sees ${b.remoteCount} remotes, want 1`);
@@ -57,7 +69,8 @@ try {
     await A.page.keyboard.press('Enter');
     await sleep(800);
     const bAfter = await snap(B.page);
-    if ((bAfter.chatMsgCount ?? 0) < 1) fail(`B did not receive chat (count=${bAfter.chatMsgCount})`);
+    if ((bAfter.chatMsgCount ?? 0) < 1)
+      fail(`B did not receive chat (count=${bAfter.chatMsgCount})`);
     else pass(`B has ${bAfter.chatMsgCount} chat bubble(s)`);
   });
 
@@ -71,7 +84,7 @@ try {
     }
   });
 } catch (e) {
-  console.error("smoke setup crashed:", e);
+  console.error('smoke setup crashed:', e);
   process.exitCode = 1;
 } finally {
   const ok = summary();

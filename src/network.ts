@@ -52,9 +52,13 @@ export class Network {
     const url = `${proto}//${location.host}/ws`;
     this.ws = new WebSocket(url);
 
-    this.ws.addEventListener('open', () => { this.connected = true; });
+    this.ws.addEventListener('open', () => {
+      this.connected = true;
+    });
     this.ws.addEventListener('message', (e) => this._onMessage(e.data));
-    this.ws.addEventListener('close', () => { this.connected = false; });
+    this.ws.addEventListener('close', () => {
+      this.connected = false;
+    });
     this.ws.addEventListener('error', (err) => {
       console.error('WS error', err);
     });
@@ -62,7 +66,11 @@ export class Network {
 
   private _onMessage(raw: unknown): void {
     let msg: ServerMsg;
-    try { msg = JSON.parse(String(raw)) as ServerMsg; } catch { return; }
+    try {
+      msg = JSON.parse(String(raw)) as ServerMsg;
+    } catch {
+      return;
+    }
 
     switch (msg.t) {
       case 'welcome':
@@ -99,7 +107,10 @@ export class Network {
       case 'update': {
         if (!this.knownIds.has(msg.id)) {
           let q = this.pendingUpdates.get(msg.id);
-          if (!q) { q = []; this.pendingUpdates.set(msg.id, q); }
+          if (!q) {
+            q = [];
+            this.pendingUpdates.set(msg.id, q);
+          }
           q.push(msg);
           if (q.length > 8) q.shift();
         } else {
@@ -149,9 +160,8 @@ export class Network {
   }
 
   sendEmote(name: 'dance' | 'bow', on?: boolean): void {
-    const msg: ClientMsg = typeof on === 'boolean'
-      ? { t: 'emote', name, on }
-      : { t: 'emote', name };
+    const msg: ClientMsg =
+      typeof on === 'boolean' ? { t: 'emote', name, on } : { t: 'emote', name };
     this.send(msg);
   }
 

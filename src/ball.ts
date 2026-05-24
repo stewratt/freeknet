@@ -54,9 +54,9 @@ export class Ball {
     if (!this.hasReceivedState) return;
     const t = performance.now() / 1000;
     const sinceUpdate = Math.min(t - this.lastUpdate, 0.3);
-    const predicted = this.targetPosition.clone().add(
-      this.targetVelocity.clone().multiplyScalar(sinceUpdate),
-    );
+    const predicted = this.targetPosition
+      .clone()
+      .add(this.targetVelocity.clone().multiplyScalar(sinceUpdate));
     const k = 1 - Math.exp(-dt * 14);
     this.position.lerp(predicted, k);
     this.mesh.position.copy(this.position);

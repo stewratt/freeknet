@@ -8,9 +8,9 @@
 
 export interface JoinMsg {
   t: 'join';
-  drawing: string;       // data:image/png;base64,...
-  bot?: boolean;         // default false; bots may set true so the server
-                         // can split them from the human count.
+  drawing: string; // data:image/png;base64,...
+  bot?: boolean; // default false; bots may set true so the server
+  // can split them from the human count.
 }
 
 export interface MoveMsg {
@@ -23,18 +23,18 @@ export interface MoveMsg {
 
 export interface ChatMsg {
   t: 'chat';
-  text: string;          // server slices to <=120 chars
+  text: string; // server slices to <=120 chars
 }
 
 export interface EmoteMsg {
   t: 'emote';
   name: 'dance' | 'bow';
-  on?: boolean;          // only used for toggle-style emotes (dance)
+  on?: boolean; // only used for toggle-style emotes (dance)
 }
 
 export interface RtcClientMsg {
   t: 'rtc';
-  to: string;            // remote peer id
+  to: string; // remote peer id
   payload: RtcPayload;
 }
 
@@ -114,12 +114,12 @@ export interface BallMsg {
 
 export interface PresenceMsg {
   t: 'presence';
-  count: number;         // total online players (humans + bots)
+  count: number; // total online players (humans + bots)
 }
 
 export interface RtcServerMsg {
   t: 'rtc';
-  from: string;          // peer who sent the signal
+  from: string; // peer who sent the signal
   payload: RtcPayload;
 }
 

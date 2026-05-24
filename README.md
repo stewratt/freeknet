@@ -112,28 +112,28 @@ npm run deploy
 
 ## Files
 
-| Path | Role |
-| --- | --- |
-| `server.ts` | HTTP static + WS gateway + ball physics |
-| `src/main.ts` | Boot: wires draw phase → game phase |
-| `src/protocol.ts` | Shared `ClientMsg` / `ServerMsg` types |
-| `src/drawing.ts` | 2D pen capture, quadratic curve smoothing |
-| `src/avatar.ts` | Drawing → `THREE.CanvasTexture` → billboarded plane with walk-bob deformation + LOD culling |
-| `src/game.ts` | Scene wiring + render loop |
-| `src/sky.ts` | Three-color gradient skydome shader |
-| `src/world.ts` | Floor + grid |
-| `src/camera.ts` | Orbit-follow camera math |
-| `src/stage.ts` | Stage box + AABB collider |
-| `src/ball.ts` | Client-side ball mesh + interpolation |
-| `src/player.ts` | LocalPlayer (input + jump + collide) / RemotePlayer (interpolated, y-aware, dance, bow) |
-| `src/controls.ts` | WASD + space-to-jump + touch thumbsticks + mobile UI |
-| `src/network.ts` | WebSocket client with snapshot/update ordering buffer; bot flag |
-| `src/chat.ts` | troika-three-text speech bubbles + slash command dispatch |
-| `src/voice.ts` | WebRTC proximity voice with HRTF spatial audio |
-| `smoketest/` | puppeteer-based smoke tests (multiplayer, chat, presence, voice) |
-| `index.html` | Single-page HTML shell (draw phase + game phase) |
-| `vite.config.js` | Dev server + `/ws` proxy to localhost:8080 |
-| `deploy/` | `deploy.sh`, `migrate-to-freeknet.sh`, `freeknet.service` (see [DEPLOYMENT.md](DEPLOYMENT.md)) |
+| Path              | Role                                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------- |
+| `server.ts`       | HTTP static + WS gateway + ball physics                                                        |
+| `src/main.ts`     | Boot: wires draw phase → game phase                                                            |
+| `src/protocol.ts` | Shared `ClientMsg` / `ServerMsg` types                                                         |
+| `src/drawing.ts`  | 2D pen capture, quadratic curve smoothing                                                      |
+| `src/avatar.ts`   | Drawing → `THREE.CanvasTexture` → billboarded plane with walk-bob deformation + LOD culling    |
+| `src/game.ts`     | Scene wiring + render loop                                                                     |
+| `src/sky.ts`      | Three-color gradient skydome shader                                                            |
+| `src/world.ts`    | Floor + grid                                                                                   |
+| `src/camera.ts`   | Orbit-follow camera math                                                                       |
+| `src/stage.ts`    | Stage box + AABB collider                                                                      |
+| `src/ball.ts`     | Client-side ball mesh + interpolation                                                          |
+| `src/player.ts`   | LocalPlayer (input + jump + collide) / RemotePlayer (interpolated, y-aware, dance, bow)        |
+| `src/controls.ts` | WASD + space-to-jump + touch thumbsticks + mobile UI                                           |
+| `src/network.ts`  | WebSocket client with snapshot/update ordering buffer; bot flag                                |
+| `src/chat.ts`     | troika-three-text speech bubbles + slash command dispatch                                      |
+| `src/voice.ts`    | WebRTC proximity voice with HRTF spatial audio                                                 |
+| `smoketest/`      | puppeteer-based smoke tests (multiplayer, chat, presence, voice)                               |
+| `index.html`      | Single-page HTML shell (draw phase + game phase)                                               |
+| `vite.config.js`  | Dev server + `/ws` proxy to localhost:8080                                                     |
+| `deploy/`         | `deploy.sh`, `migrate-to-freeknet.sh`, `freeknet.service` (see [DEPLOYMENT.md](DEPLOYMENT.md)) |
 
 ## Wire protocol
 
@@ -189,11 +189,11 @@ The dev server has to be up (`npm start`) before running them.
 
 ## Env
 
-| Var | Default | Effect |
-| --- | --- | --- |
-| `PORT` / `FREEKNET_PORT` | `8080` (dev), `3000` (prod) | http + ws port |
-| `HOST` | `0.0.0.0` | bind address |
-| `VITE_DISABLE_VOICE` | unset | build-time flag to hide the voice mic button |
+| Var                      | Default                     | Effect                                       |
+| ------------------------ | --------------------------- | -------------------------------------------- |
+| `PORT` / `FREEKNET_PORT` | `8080` (dev), `3000` (prod) | http + ws port                               |
+| `HOST`                   | `0.0.0.0`                   | bind address                                 |
+| `VITE_DISABLE_VOICE`     | unset                       | build-time flag to hide the voice mic button |
 
 ## Known limitations
 

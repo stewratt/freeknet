@@ -126,64 +126,67 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
   });
   if (!voiceDisabled) setupVoiceUI({ voice });
 
-  const network = new Network({
-    onWelcome: () => {
-      const dataURL = drawingCanvas.toDataURL('image/png');
-      network.sendJoin(dataURL);
-    },
-    onPresence: ({ count }) => {
-      if (!presenceEl) return;
-      presenceEl.textContent = `${count} online`;
-    },
-    onJoin: async (p) => {
-      if (p.id === network.id) return;
-      if (remotes.has(p.id)) return;
-      const rp = new RemotePlayer(p);
-      remotes.set(p.id, rp);
-      scene.add(rp.group);
-      drawingsById.set(p.id, p.drawing);
-      try {
-        const mesh = await createAvatarFromDataURL(p.drawing);
-        rp.setAvatar(mesh);
-      } catch (e) {
-        console.error('failed to build remote avatar', e);
-      }
-    },
-    onLeave: (id) => {
-      const rp = remotes.get(id);
-      if (rp) {
-        scene.remove(rp.group);
-        if (rp.avatar) {
-          rp.avatar.geometry.dispose();
-          rp.avatar.material.map?.dispose();
-          rp.avatar.material.dispose();
+  const network = new Network(
+    {
+      onWelcome: () => {
+        const dataURL = drawingCanvas.toDataURL('image/png');
+        network.sendJoin(dataURL);
+      },
+      onPresence: ({ count }) => {
+        if (!presenceEl) return;
+        presenceEl.textContent = `${count} online`;
+      },
+      onJoin: async (p) => {
+        if (p.id === network.id) return;
+        if (remotes.has(p.id)) return;
+        const rp = new RemotePlayer(p);
+        remotes.set(p.id, rp);
+        scene.add(rp.group);
+        drawingsById.set(p.id, p.drawing);
+        try {
+          const mesh = await createAvatarFromDataURL(p.drawing);
+          rp.setAvatar(mesh);
+        } catch (e) {
+          console.error('failed to build remote avatar', e);
         }
-        remotes.delete(id);
-      }
-      drawingsById.delete(id);
-      chat.clearForPlayer(id);
-      voice.onPeerLeft(id);
+      },
+      onLeave: (id) => {
+        const rp = remotes.get(id);
+        if (rp) {
+          scene.remove(rp.group);
+          if (rp.avatar) {
+            rp.avatar.geometry.dispose();
+            rp.avatar.material.map?.dispose();
+            rp.avatar.material.dispose();
+          }
+          remotes.delete(id);
+        }
+        drawingsById.delete(id);
+        chat.clearForPlayer(id);
+        voice.onPeerLeft(id);
+      },
+      onUpdate: (msg) => {
+        const rp = remotes.get(msg.id);
+        if (rp) rp.pushUpdate(msg.x, msg.y ?? 0, msg.z);
+      },
+      onChat: (msg) => {
+        chat.add(msg.id, msg.text);
+      },
+      onEmote: (msg) => {
+        const rp = remotes.get(msg.id);
+        if (!rp) return;
+        if (msg.name === 'dance') rp.setDance(!!msg.on);
+        else if (msg.name === 'bow') rp.startBow();
+      },
+      onBall: (msg) => {
+        ball.receiveState(msg.x, msg.y, msg.z, msg.vx ?? 0, msg.vy ?? 0, msg.vz ?? 0);
+      },
+      onRtc: (msg) => {
+        voice.onSignal(msg);
+      },
     },
-    onUpdate: (msg) => {
-      const rp = remotes.get(msg.id);
-      if (rp) rp.pushUpdate(msg.x, msg.y ?? 0, msg.z);
-    },
-    onChat: (msg) => {
-      chat.add(msg.id, msg.text);
-    },
-    onEmote: (msg) => {
-      const rp = remotes.get(msg.id);
-      if (!rp) return;
-      if (msg.name === 'dance') rp.setDance(!!msg.on);
-      else if (msg.name === 'bow') rp.startBow();
-    },
-    onBall: (msg) => {
-      ball.receiveState(msg.x, msg.y, msg.z, msg.vx ?? 0, msg.vy ?? 0, msg.vz ?? 0);
-    },
-    onRtc: (msg) => {
-      voice.onSignal(msg);
-    },
-  }, { isBot });
+    { isBot },
+  );
   network.connect();
 
   // expose game internals for smoke tests / debugging. dev only.

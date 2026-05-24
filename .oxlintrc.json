@@ -9,9 +9,5 @@
     // game loops and physics tweaks deliberately use bare numbers
     "no-magic-numbers": "off"
   },
-  "ignorePatterns": [
-    "dist/",
-    "node_modules/",
-    "server.js"
-  ]
+  "ignorePatterns": ["dist/", "node_modules/", "server.js"]
 }

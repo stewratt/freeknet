@@ -5,10 +5,5 @@
   "tabWidth": 2,
   "semi": true,
   "trailingComma": "all",
-  "ignorePatterns": [
-    "dist/",
-    "node_modules/",
-    "server.js",
-    "package-lock.json"
-  ]
+  "ignorePatterns": ["dist/", "node_modules/", "server.js", "package-lock.json"]
 }

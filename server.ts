@@ -11,12 +11,7 @@ import { readFile, stat } from 'fs/promises';
 import { join, extname, normalize } from 'path';
 import { fileURLToPath } from 'url';
 import { World, Vec3, type Body } from '@perplexdotgg/bounce';
-import type {
-  ClientMsg,
-  ServerMsg,
-  SnapshotPlayer,
-  BallMsg,
-} from './src/protocol';
+import type { ClientMsg, ServerMsg, SnapshotPlayer, BallMsg } from './src/protocol';
 
 const PORT = Number(process.env.PORT ?? process.env.FREEKNET_PORT ?? 8080);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -28,21 +23,21 @@ const STATIC_DIR = join(__dirname, 'dist');
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
-  '.js':   'application/javascript; charset=utf-8',
-  '.mjs':  'application/javascript; charset=utf-8',
-  '.css':  'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
-  '.svg':  'image/svg+xml',
-  '.png':  'image/png',
-  '.jpg':  'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
-  '.gif':  'image/gif',
+  '.gif': 'image/gif',
   '.webp': 'image/webp',
-  '.ico':  'image/x-icon',
+  '.ico': 'image/x-icon',
   '.woff': 'font/woff',
-  '.woff2':'font/woff2',
-  '.ttf':  'font/ttf',
-  '.map':  'application/json; charset=utf-8',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.map': 'application/json; charset=utf-8',
 };
 
 async function tryServe(filePath: string, res: ServerResponse): Promise<boolean> {
@@ -61,9 +56,15 @@ async function tryServe(filePath: string, res: ServerResponse): Promise<boolean>
 
 const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    res.writeHead(405); res.end('method not allowed'); return;
+    res.writeHead(405);
+    res.end('method not allowed');
+    return;
   }
-  if (req.url === '/healthz') { res.writeHead(200); res.end('ok'); return; }
+  if (req.url === '/healthz') {
+    res.writeHead(200);
+    res.end('ok');
+    return;
+  }
 
   let urlPath = (req.url ?? '/').split('?')[0];
   if (urlPath === '/') urlPath = '/index.html';
@@ -71,7 +72,9 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
   const safe = normalize(urlPath).replace(/^(\.\.[\/\\])+/, '');
   const filePath = join(STATIC_DIR, safe);
   if (!filePath.startsWith(STATIC_DIR)) {
-    res.writeHead(403); res.end('forbidden'); return;
+    res.writeHead(403);
+    res.end('forbidden');
+    return;
   }
   if (await tryServe(filePath, res)) return;
   if (!extname(urlPath)) {
@@ -96,8 +99,12 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
 // this hardcoded array with a loaded scene, server-side.)
 
 interface Collider {
-  x: number; y: number; z: number;
-  sx: number; sy: number; sz: number;
+  x: number;
+  y: number;
+  z: number;
+  sx: number;
+  sy: number;
+  sz: number;
 }
 
 const COLLIDERS: Collider[] = [
@@ -205,7 +212,9 @@ interface Player {
   ws: WebSocket;
   drawing: string;
   bot: boolean;
-  x: number; y: number; z: number;
+  x: number;
+  y: number;
+  z: number;
   rotY: number;
   dance: boolean;
   lastMoveAt: number;
@@ -233,11 +242,7 @@ function tryKick(p: Player, oldX: number, oldZ: number, dt: number): void {
     // standing on/in the ball — gently push it out so they don't tunnel.
     const pen = reach - dist;
     if (pen > 0.001) {
-      ballBody.position.set([
-        ballPos.x + nrx * pen,
-        ballPos.y,
-        ballPos.z + nrz * pen,
-      ]);
+      ballBody.position.set([ballPos.x + nrx * pen, ballPos.y, ballPos.z + nrz * pen]);
       ballBody.commitChanges();
       ballDirty = true;
     }
@@ -293,7 +298,10 @@ const wss = new WebSocketServer({ noServer: true });
 
 httpServer.on('upgrade', (req, socket, head) => {
   const path = (req.url ?? '').split('?')[0];
-  if (path !== '/ws') { socket.destroy(); return; }
+  if (path !== '/ws') {
+    socket.destroy();
+    return;
+  }
   wss.handleUpgrade(req, socket, head, (ws) => {
     wss.emit('connection', ws, req);
   });
@@ -305,13 +313,19 @@ wss.on('connection', (rawWs: WebSocket) => {
   ws.id = id;
   ws.isAlive = true;
   ws.joined = false;
-  ws.on('pong', () => { ws.isAlive = true; });
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
 
   send(ws, { t: 'welcome', id });
 
   ws.on('message', (raw) => {
     let msg: ClientMsg;
-    try { msg = JSON.parse(raw.toString()) as ClientMsg; } catch { return; }
+    try {
+      msg = JSON.parse(raw.toString()) as ClientMsg;
+    } catch {
+      return;
+    }
 
     if (msg.t === 'join') {
       if (ws.joined) return; // ignore re-joins on the same socket
@@ -322,7 +336,9 @@ wss.on('connection', (rawWs: WebSocket) => {
         ws,
         drawing: msg.drawing,
         bot: isBot,
-        x: 0, y: 0, z: 0,
+        x: 0,
+        y: 0,
+        z: 0,
         rotY: 0,
         dance: false,
         lastMoveAt: Date.now(),
@@ -336,7 +352,10 @@ wss.on('connection', (rawWs: WebSocket) => {
         snapshot.push({
           id: pid,
           drawing: other.drawing,
-          x: other.x, y: other.y, z: other.z, rotY: other.rotY,
+          x: other.x,
+          y: other.y,
+          z: other.z,
+          rotY: other.rotY,
           dance: !!other.dance,
           bot: !!other.bot,
         });
@@ -344,14 +363,20 @@ wss.on('connection', (rawWs: WebSocket) => {
       send(ws, { t: 'snapshot', players: snapshot });
       send(ws, ballSerialize());
 
-      broadcast({
-        t: 'join',
+      broadcast(
+        {
+          t: 'join',
+          id,
+          drawing: msg.drawing,
+          x: 0,
+          y: 0,
+          z: 0,
+          rotY: 0,
+          dance: false,
+          bot: isBot,
+        },
         id,
-        drawing: msg.drawing,
-        x: 0, y: 0, z: 0, rotY: 0,
-        dance: false,
-        bot: isBot,
-      }, id);
+      );
 
       maybeBroadcastPresence();
       return;
@@ -374,7 +399,8 @@ wss.on('connection', (rawWs: WebSocket) => {
 
       const now = Date.now();
       const moveDt = Math.max(0.016, Math.min(0.5, (now - (p.lastMoveAt || now)) / 1000));
-      const oldX = p.x, oldZ = p.z;
+      const oldX = p.x,
+        oldZ = p.z;
       p.x = msg.x;
       p.y = y;
       p.z = msg.z;
@@ -438,9 +464,18 @@ const ballTick = setInterval(() => {
   const v = ballBody.linearVelocity;
   const av = ballBody.angularVelocity;
   let touched = false;
-  if (Math.abs(v.x) < 0.15) { v.x = 0; touched = true; }
-  if (Math.abs(v.z) < 0.15) { v.z = 0; touched = true; }
-  if (Math.abs(v.y) < 0.15 && ballBody.position.y <= BALL_RADIUS + 0.05) { v.y = 0; touched = true; }
+  if (Math.abs(v.x) < 0.15) {
+    v.x = 0;
+    touched = true;
+  }
+  if (Math.abs(v.z) < 0.15) {
+    v.z = 0;
+    touched = true;
+  }
+  if (Math.abs(v.y) < 0.15 && ballBody.position.y <= BALL_RADIUS + 0.05) {
+    v.y = 0;
+    touched = true;
+  }
   // dampen residual spin too once linear motion is dead
   if (touched && v.x === 0 && v.z === 0 && v.y === 0) {
     av.x = av.y = av.z = 0;
@@ -469,9 +504,14 @@ const ballTick = setInterval(() => {
 const heartbeat = setInterval(() => {
   for (const rawClient of wss.clients) {
     const client = rawClient as AliveWS;
-    if (!client.isAlive) { client.terminate(); continue; }
+    if (!client.isAlive) {
+      client.terminate();
+      continue;
+    }
     client.isAlive = false;
-    try { client.ping(); } catch {}
+    try {
+      client.ping();
+    } catch {}
   }
 }, 30000);
 
@@ -487,7 +527,9 @@ function shutdown(): void {
   clearInterval(heartbeat);
   clearInterval(ballTick);
   for (const client of wss.clients) {
-    try { client.close(1001, 'server shutdown'); } catch {}
+    try {
+      client.close(1001, 'server shutdown');
+    } catch {}
   }
   process.exit(0);
 }

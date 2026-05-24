@@ -85,21 +85,28 @@ export class ChatManager {
     const expired: string[] = [];
     for (const [pid, b] of this.bubbles) {
       const pos = this.getPlayerPos(pid);
-      if (!pos) { expired.push(pid); continue; }
+      if (!pos) {
+        expired.push(pid);
+        continue;
+      }
 
       b.age += dt;
-      if (b.age >= MESSAGE_LIFETIME) { expired.push(pid); continue; }
+      if (b.age >= MESSAGE_LIFETIME) {
+        expired.push(pid);
+        continue;
+      }
 
       const tx = b.text;
       tx.position.set(pos.x, pos.y + 2.05, pos.z);
       tx.lookAt(camPos.x, tx.position.y, camPos.z);
 
       const dist = camPos.distanceTo(pos);
-      const proximity = dist > PROXIMITY_MAX
-        ? 0
-        : dist > PROXIMITY_FADE
-          ? 1 - (dist - PROXIMITY_FADE) / (PROXIMITY_MAX - PROXIMITY_FADE)
-          : 1;
+      const proximity =
+        dist > PROXIMITY_MAX
+          ? 0
+          : dist > PROXIMITY_FADE
+            ? 1 - (dist - PROXIMITY_FADE) / (PROXIMITY_MAX - PROXIMITY_FADE)
+            : 1;
 
       const fadeIn = Math.min(b.age / 0.15, 1);
       const remaining = MESSAGE_LIFETIME - b.age;

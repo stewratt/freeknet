@@ -9,7 +9,13 @@
 
 import { Page } from 'puppeteer';
 import {
-  makeBrowser, newSession, drawAndEnter, snap, pressKey, sleep, makeRunner,
+  makeBrowser,
+  newSession,
+  drawAndEnter,
+  snap,
+  pressKey,
+  sleep,
+  makeRunner,
 } from './helpers';
 
 const FAKE_GUM = (): void => {
@@ -153,7 +159,7 @@ try {
     }
   });
 } catch (e) {
-  console.error("smoke setup crashed:", e);
+  console.error('smoke setup crashed:', e);
   process.exitCode = 1;
 } finally {
   const ok = summary();

@@ -249,7 +249,8 @@ export class VoiceManager {
     panner.connect(this.audioCtx.destination);
 
     const state: PeerState = {
-      pc, panner,
+      pc,
+      panner,
       audioEl: null,
       remoteStream: null,
       remoteDescSet: false,
@@ -318,7 +319,11 @@ export class VoiceManager {
       const queued = this.queuedIce.get(remoteId);
       if (queued) {
         for (const c of queued) {
-          try { await pc.addIceCandidate(c); } catch (e) { console.warn('queued ice failed', e); }
+          try {
+            await pc.addIceCandidate(c);
+          } catch (e) {
+            console.warn('queued ice failed', e);
+          }
         }
         this.queuedIce.delete(remoteId);
       }
@@ -341,7 +346,10 @@ export class VoiceManager {
       // queue until the remote description is set, otherwise addIceCandidate
       // throws in chrome.
       let q = this.queuedIce.get(remoteId);
-      if (!q) { q = []; this.queuedIce.set(remoteId, q); }
+      if (!q) {
+        q = [];
+        this.queuedIce.set(remoteId, q);
+      }
       q.push(ice);
       return;
     }
@@ -355,10 +363,17 @@ export class VoiceManager {
   private _closePeer(id: string): void {
     const state = this.peers.get(id);
     if (!state) return;
-    try { state.pc.close(); } catch {}
-    try { state.panner.disconnect(); } catch {}
+    try {
+      state.pc.close();
+    } catch {}
+    try {
+      state.panner.disconnect();
+    } catch {}
     if (state.audioEl) {
-      try { state.audioEl.srcObject = null; state.audioEl.remove(); } catch {}
+      try {
+        state.audioEl.srcObject = null;
+        state.audioEl.remove();
+      } catch {}
     }
     this.peers.delete(id);
     this.queuedIce.delete(id);
