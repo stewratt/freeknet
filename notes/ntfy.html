@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>freeknet ntfy guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+:root {
+  --bg: #fafaf8;
+  --fg: #222;
+  --muted: #777;
+  --accent: #4a7c9e;
+  --border: #ddd;
+  --card: #fff;
+  --code-bg: #f3f1ec;
+  --warn-bg: #fff4e5;
+  --warn-border: #f0d0a0;
+}
+* { box-sizing: border-box; }
+body {
+  font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+  margin: 0;
+  padding: 32px 16px 80px;
+}
+.container { max-width: 760px; margin: 0 auto; }
+h1 { font-weight: 300; letter-spacing: 0.04em; margin-bottom: 4px; font-size: 28px; }
+h2 {
+  margin-top: 44px;
+  font-weight: 500;
+  font-size: 17px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+h3 { font-size: 14px; font-weight: 600; margin-top: 24px; margin-bottom: 6px; color: #444; }
+p { margin: 8px 0; }
+code, pre {
+  background: var(--code-bg);
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  border-radius: 3px;
+}
+code { padding: 1px 5px; }
+pre { padding: 12px 14px; overflow-x: auto; margin: 12px 0; line-height: 1.5; }
+.muted { color: var(--muted); }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px 20px;
+  margin: 14px 0;
+}
+.topic-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.topic {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  background: var(--code-bg);
+  padding: 6px 10px;
+  border-radius: 3px;
+  font-size: 14px;
+  user-select: all;
+  word-break: break-all;
+}
+button, .btn {
+  font: inherit;
+  background: #fff;
+  border: 1px solid #aaa;
+  padding: 6px 14px;
+  border-radius: 3px;
+  cursor: pointer;
+  color: #333;
+  text-decoration: none;
+  display: inline-block;
+}
+button:hover, .btn:hover { background: #f3f3f3; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+.status { font-size: 13px; color: var(--muted); margin-top: 10px; min-height: 18px; }
+.status.ok { color: #3b803b; }
+.status.err { color: #a04040; }
+.flow {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.flow-step {
+  flex: 1 1 140px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+.flow-step .label {
+  font-weight: 600;
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.flow-step .title { font-weight: 500; margin: 4px 0; font-size: 13px; color: #333; }
+.flow-step .desc { color: var(--muted); font-size: 12px; }
+.flow-arrow {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 16px;
+  padding: 0 2px;
+}
+@media (max-width: 600px) { .flow-arrow { display: none; } }
+.warn {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  padding: 10px 14px;
+  border-radius: 3px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+ul { padding-left: 22px; margin: 8px 0; }
+li { margin: 4px 0; }
+a { color: var(--accent); }
+.file-ref {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 8px;
+}
+.file-ref code { font-size: 12px; }
+footer {
+  margin-top: 56px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>freeknet ntfy guide</h1>
+<p class="muted">how the join-notification system works, and how to control it.</p>
+
+<h2>tl;dr</h2>
+<p>When someone joins freeknet, <code>server.js</code> POSTs a tiny HTTP message to <code>https://ntfy.sh/{your-topic}</code>. Anyone subscribed to that topic — your phone, a browser tab, a terminal — receives the push within ~1 second. ntfy.sh is a free public pub/sub relay; no accounts, no infrastructure.</p>
+
+<h2>your topic</h2>
+<div class="card">
+<p style="margin-top:0" class="muted">This is the secret-ish identifier for your notification stream. Anyone who knows it can <em>read</em> your pushes <em>and</em> send fake ones. Don't share publicly; don't commit to a public repo.</p>
+<div class="topic-row">
+  <span class="topic" id="topic">freeknet-stew-65fd0ae97959</span>
+  <button id="copy-btn">copy</button>
+  <a class="btn" href="https://ntfy.sh/freeknet-stew-65fd0ae97959" target="_blank" rel="noopener">open in web UI ↗</a>
+</div>
+<p class="file-ref">Source of truth: <code>/etc/freeknet.env</code> on the server, loaded into the systemd unit via <code>EnvironmentFile=-/etc/freeknet.env</code>. Not in git. <code>chmod 600</code>, root-only.</p>
+</div>
+
+<h2>send a test push from here</h2>
+<div class="card">
+<p style="margin-top:0">Click below — your browser will POST directly to ntfy.sh. Any subscriber (your phone, web UI, terminal) should get it almost immediately.</p>
+<button id="send-test">send test push</button>
+<div class="status" id="send-status"></div>
+</div>
+
+<h2>how the flow works</h2>
+<div class="flow">
+  <div class="flow-step">
+    <div class="label">1</div>
+    <div class="title">player joins</div>
+    <div class="desc">WebSocket sends <code>{t:'join'}</code> to <code>server.js</code></div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step">
+    <div class="label">2</div>
+    <div class="title">batched</div>
+    <div class="desc">joins within 5s collapse into one push</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step">
+    <div class="label">3</div>
+    <div class="title">POST ntfy.sh</div>
+    <div class="desc">tiny HTTP with the topic in the URL path</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-step">
+    <div class="label">4</div>
+    <div class="title">fan-out</div>
+    <div class="desc">ntfy pushes to every subscriber instantly</div>
+  </div>
+</div>
+<p class="muted">ntfy.sh is the message broker. It doesn't know or care what freeknet is — just that your server is a publisher and your phone is a subscriber on the same topic string. Same idea as Redis pub/sub or MQTT, but with no setup and a free public broker.</p>
+
+<h2>subscribing</h2>
+
+<h3>phone (recommended)</h3>
+<ul>
+  <li>Install the <a href="https://ntfy.sh/" target="_blank" rel="noopener">ntfy</a> app — iOS, Android Play Store, F-Droid</li>
+  <li>Tap +, paste your topic name (above), save</li>
+  <li>Per-topic settings: mute, set DND schedule, change sound, custom icon</li>
+</ul>
+
+<h3>browser (no install)</h3>
+<p>Open <a href="https://ntfy.sh/freeknet-stew-65fd0ae97959" target="_blank" rel="noopener">ntfy.sh/{your-topic}</a> in any tab. Notifications stream into the page. You can grant browser-push permission and get desktop notifications without keeping the tab in focus.</p>
+
+<h3>terminal</h3>
+<pre>curl -s ntfy.sh/freeknet-stew-65fd0ae97959/json | jq</pre>
+<p class="muted">Long-polling stream of new messages as JSON-lines. Hit ctrl-C to stop.</p>
+
+<h2>the server code</h2>
+<p>This is the relevant block in <code>server.js</code>:</p>
+<pre>const NTFY_TOPIC = process.env.NTFY_TOPIC || '';
+const NTFY_URL = NTFY_TOPIC ? `https://ntfy.sh/${NTFY_TOPIC}` : '';
+
+// debounce: bursts collapse into one push (avoids spam from bots / refresh loops)
+let pendingJoins = 0, notifyTimer = null;
+const NOTIFY_BATCH_MS = 5000;
+
+function notifyJoin() {
+  if (!NTFY_URL) return;                 // no-op if env unset
+  pendingJoins++;
+  if (notifyTimer) return;
+  notifyTimer = setTimeout(() => {
+    const count = pendingJoins;
+    const total = players.size;
+    pendingJoins = 0; notifyTimer = null;
+    const msg = count === 1
+      ? `someone joined freeknet (${total} online)`
+      : `${count} joined freeknet (${total} online)`;
+    fetch(NTFY_URL, {
+      method: 'POST',
+      body: msg,
+      headers: { Title: 'freeknet', Tags: 'wave' },
+    }).catch(err => console.error('[ntfy] push failed:', err.message));
+  }, NOTIFY_BATCH_MS);
+}</pre>
+<p>Called from the <code>t: 'join'</code> WS handler. If <code>NTFY_TOPIC</code> is empty (e.g., in local dev), all notifications silently no-op.</p>
+
+<h2>changing the topic</h2>
+<pre>ssh root@freeknet.duckdns.org
+
+# edit /etc/freeknet.env — single line:
+#   NTFY_TOPIC=your-new-name-here
+nano /etc/freeknet.env
+
+systemctl restart freeknet
+
+# verify env loaded
+systemctl show freeknet -p Environment</pre>
+<p>The systemd unit auto-loads <code>/etc/freeknet.env</code> at start (because of <code>EnvironmentFile=-/etc/freeknet.env</code> in <code>deploy/freeknet.service</code>). Restart picks up changes.</p>
+
+<h2>checking who's online (no push needed)</h2>
+<pre>curl http://freeknet.duckdns.org:3000/stats</pre>
+<p>Returns:</p>
+<pre>{
+  "online": 2,
+  "uptime": 8431,
+  "players": [
+    { "x": 0.4, "y": 0,   "z": -1.2, "dance": false },
+    { "x": 5.2, "y": 0.7, "z": 0,    "dance": true  }
+  ]
+}</pre>
+<p class="muted">No drawing data exposed. Public endpoint — anyone observing via WebSocket could already see this, so no new exposure.</p>
+
+<h2>troubleshooting</h2>
+
+<h3>I don't get notifications</h3>
+<ul>
+  <li>Hit the <em>send test push</em> button above. If your phone gets that, the server is the broken piece. If it doesn't, your subscription is broken.</li>
+  <li>Confirm env loaded: <code>ssh root@freeknet.duckdns.org 'systemctl show freeknet -p Environment'</code> — should include <code>NTFY_TOPIC=...</code></li>
+  <li>Tail for push errors: <code>ssh root@freeknet.duckdns.org 'journalctl -u freeknet -f | grep ntfy'</code></li>
+  <li>Tail for joins (to confirm they're happening at all): <code>journalctl -u freeknet -f | grep join</code></li>
+</ul>
+
+<h3>too many notifications</h3>
+<p>Bots from <code>freeknet-bot</code> will each trigger a notification on join. Options, in order of least → most invasive:</p>
+<ul>
+  <li>Mute in the ntfy app (per-topic DND schedule)</li>
+  <li>Tighten the batch window — set <code>NOTIFY_BATCH_MS = 60000</code> in <code>server.js</code> (collapse a full minute of joins into one ping)</li>
+  <li>Skip pushes when room is already populated — wrap with <code>if (players.size &lt; 3)</code></li>
+  <li>Filter known-bot IDs — bots don't self-identify today, but you could give the bot a join handshake field and filter on it</li>
+</ul>
+
+<h3>stop notifications entirely</h3>
+<pre>ssh root@freeknet.duckdns.org
+rm /etc/freeknet.env
+systemctl restart freeknet</pre>
+<p>With <code>NTFY_TOPIC</code> unset, <code>notifyJoin()</code> no-ops. The game keeps working normally; logs still record joins.</p>
+
+<h3>I changed the topic — old one still works?</h3>
+<p>ntfy topics are anonymous and stateless. The old one is "orphaned" — no one is pushing to it. If you're still subscribed in the app, you just won't see anything. Safe to remove from the app or ignore.</p>
+
+<h3>can someone spam my topic?</h3>
+<p>Yes — anyone who knows the topic string can POST to it. The topic is treated like a shared secret. If it leaks, generate a new one (see <em>changing the topic</em> above) and update the app subscription. ntfy.sh also supports reserved topics + auth for ~$5/mo if you ever want hard guarantees.</p>
+
+<h2>links</h2>
+<ul>
+  <li><a href="https://ntfy.sh/" target="_blank" rel="noopener">ntfy.sh</a> — service homepage</li>
+  <li><a href="https://docs.ntfy.sh/publish/" target="_blank" rel="noopener">publishing docs</a> — every header (Title, Tags, Priority, Click, Attach, Email, Actions, ...)</li>
+  <li><a href="https://docs.ntfy.sh/subscribe/phone/" target="_blank" rel="noopener">subscribe docs</a> — mobile setup walkthroughs</li>
+  <li><a href="https://docs.ntfy.sh/emojis/" target="_blank" rel="noopener">tags / emoji reference</a> — the <code>Tags: wave</code> header maps to 👋 on the device</li>
+</ul>
+
+<footer>
+  Local-only doc. Your topic is embedded above — don't share this file.<br>
+  Path: <code>notes/ntfy.html</code> · <code>notes/</code> is gitignored.
+</footer>
+
+</div>
+
+<script>
+const TOPIC = document.getElementById('topic').textContent.trim();
+
+document.getElementById('copy-btn').addEventListener('click', async (e) => {
+  await navigator.clipboard.writeText(TOPIC);
+  e.target.textContent = 'copied';
+  setTimeout(() => e.target.textContent = 'copy', 1500);
+});
+
+document.getElementById('send-test').addEventListener('click', async (e) => {
+  const btn = e.target;
+  const status = document.getElementById('send-status');
+  btn.disabled = true;
+  status.className = 'status';
+  status.textContent = 'sending...';
+  try {
+    const res = await fetch(`https://ntfy.sh/${TOPIC}`, {
+      method: 'POST',
+      body: `test push at ${new Date().toLocaleTimeString()}`,
+      headers: { Title: 'freeknet test', Tags: 'gear' },
+    });
+    if (res.ok) {
+      status.className = 'status ok';
+      status.textContent = 'sent. check your phone / web subscriber within a second.';
+    } else {
+      status.className = 'status err';
+      status.textContent = `ntfy returned ${res.status} ${res.statusText}`;
+    }
+  } catch (err) {
+    status.className = 'status err';
+    status.textContent = `request failed: ${err.message}`;
+  } finally {
+    setTimeout(() => { btn.disabled = false; }, 1000);
+  }
+});
+</script>
+</body>
+</html>
