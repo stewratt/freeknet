@@ -7,7 +7,13 @@
   },
   "rules": {
     // game loops and physics tweaks deliberately use bare numbers
-    "no-magic-numbers": "off"
+    "no-magic-numbers": "off",
+    // `_methodName` is the project's convention for "private to this class";
+    // `__game` and `__dirname` are intentional (debug global + ESM polyfill).
+    "no-underscore-dangle": "off",
+    // inline helper functions inside larger setup functions are deliberate
+    // — they document scoping and aren't worth hoisting.
+    "unicorn/consistent-function-scoping": "off"
   },
   "ignorePatterns": ["dist/", "node_modules/", "server.js"]
 }

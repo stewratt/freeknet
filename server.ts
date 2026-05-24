@@ -69,7 +69,7 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
   let urlPath = (req.url ?? '/').split('?')[0];
   if (urlPath === '/') urlPath = '/index.html';
 
-  const safe = normalize(urlPath).replace(/^(\.\.[\/\\])+/, '');
+  const safe = normalize(urlPath).replace(/^(\.\.[/\\])+/, '');
   const filePath = join(STATIC_DIR, safe);
   if (!filePath.startsWith(STATIC_DIR)) {
     res.writeHead(403);

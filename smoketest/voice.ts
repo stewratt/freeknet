@@ -18,6 +18,13 @@ import {
   makeRunner,
 } from './helpers';
 
+// safari prefixes AudioContext; the standard lib's Window doesn't include
+// webkitAudioContext, so widen it locally.
+interface WindowWithLegacyAudio {
+  AudioContext?: typeof AudioContext;
+  webkitAudioContext?: typeof AudioContext;
+}
+
 const FAKE_GUM = (): void => {
   // override getUserMedia to return a synthesized 1kHz tone instead of asking
   // for a real mic. this lets us exercise the full webrtc pipeline in a
@@ -25,8 +32,8 @@ const FAKE_GUM = (): void => {
   const orig = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
   navigator.mediaDevices.getUserMedia = async (constraints?: MediaStreamConstraints) => {
     if (!constraints?.audio) return orig(constraints);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
+    const w = window as unknown as WindowWithLegacyAudio;
+    const Ctx = (w.AudioContext || w.webkitAudioContext) as typeof AudioContext;
     const ctx = new Ctx();
     const osc = ctx.createOscillator();
     osc.frequency.value = 1000;

@@ -58,14 +58,18 @@ export function createAvatarFromCanvas(canvas: HTMLCanvasElement): AvatarMesh {
 export function createAvatarFromDataURL(dataURL: string): Promise<AvatarMesh> {
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => {
-      const cv = document.createElement('canvas');
-      cv.width = img.width;
-      cv.height = img.height;
-      const cx = cv.getContext('2d')!;
-      cx.drawImage(img, 0, 0);
-      resolve(createAvatarFromCanvas(cv));
-    };
+    img.addEventListener(
+      'load',
+      () => {
+        const cv = document.createElement('canvas');
+        cv.width = img.width;
+        cv.height = img.height;
+        const cx = cv.getContext('2d')!;
+        cx.drawImage(img, 0, 0);
+        resolve(createAvatarFromCanvas(cv));
+      },
+      { once: true },
+    );
     img.src = dataURL;
   });
 }

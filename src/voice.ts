@@ -45,6 +45,14 @@ interface PeerState {
   remoteDescSet: boolean;
 }
 
+// older safari exposes setPosition / setOrientation directly on the listener
+// instead of the modern AudioParam-per-axis API. these aren't in the
+// standard AudioListener lib types, so declare them locally.
+interface LegacyAudioListener {
+  setPosition(x: number, y: number, z: number): void;
+  setOrientation(fx: number, fy: number, fz: number, ux: number, uy: number, uz: number): void;
+}
+
 // the webkit prefix is non-standard. cast through a small interface so we
 // don't pollute Window globally.
 interface AudioCtxWindow {
@@ -98,7 +106,10 @@ export class VoiceManager {
   disable(): void {
     if (!this.enabled) return;
     this.enabled = false;
-    for (const id of [...this.peers.keys()]) this._closePeer(id);
+    // snapshot the keys first — _closePeer mutates this.peers, so
+    // iterating the live map would skip entries.
+    const peerIds = Array.from(this.peers.keys());
+    for (const id of peerIds) this._closePeer(id);
     if (this.localStream) {
       for (const t of this.localStream.getTracks()) t.stop();
       this.localStream = null;
@@ -169,8 +180,11 @@ export class VoiceManager {
       }
     }
 
-    // close peers for vanished remotes
-    for (const rid of [...this.peers.keys()]) {
+    // close peers for vanished remotes. snapshot the keys first because
+    // _closePeer mutates this.peers, so iterating the live map would skip
+    // entries.
+    const knownPeerIds = Array.from(this.peers.keys());
+    for (const rid of knownPeerIds) {
       if (!remotes.has(rid)) this._closePeer(rid);
     }
   }
@@ -205,9 +219,8 @@ export class VoiceManager {
       lis.positionY.setValueAtTime(pos.y ?? 0, now);
       lis.positionZ.setValueAtTime(pos.z, now);
     } else {
-      // older safari
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (lis as any).setPosition(pos.x, pos.y ?? 0, pos.z);
+      // older safari falls back to the deprecated setPosition API
+      (lis as unknown as LegacyAudioListener).setPosition(pos.x, pos.y ?? 0, pos.z);
     }
 
     // listener orientation: forward vector from yaw, up = +Y.
@@ -221,8 +234,7 @@ export class VoiceManager {
       lis.upY.setValueAtTime(1, now);
       lis.upZ.setValueAtTime(0, now);
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (lis as any).setOrientation(fx, 0, fz, 0, 1, 0);
+      (lis as unknown as LegacyAudioListener).setOrientation(fx, 0, fz, 0, 1, 0);
     }
   }
 

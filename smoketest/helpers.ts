@@ -1,12 +1,12 @@
 // shared helpers for the smoke tests. cross-platform: uses bundled chromium
 // from `puppeteer` (not puppeteer-core), so no executablePath is needed.
 
-import puppeteer, { Browser, Page } from 'puppeteer';
+import { launch, type Browser, type KeyInput, type Page } from 'puppeteer';
 
 const BASE_URL = process.env.SMOKE_URL ?? 'http://localhost:5173/';
 
 export async function makeBrowser(): Promise<Browser> {
-  return puppeteer.launch({
+  return launch({
     headless: true,
     args: [
       '--no-sandbox',
@@ -53,7 +53,7 @@ export async function newSession(browser: Browser, label = ''): Promise<Session>
 }
 
 export async function drawAndEnter(page: Page, shape: 'V' | 'line' = 'line'): Promise<void> {
-  await page.evaluate((shape) => {
+  await page.evaluate((shapeArg) => {
     const c = document.getElementById('draw-canvas') as HTMLCanvasElement;
     const r = c.getBoundingClientRect();
     function ev(type: string, x: number, y: number): void {
@@ -71,7 +71,7 @@ export async function drawAndEnter(page: Page, shape: 'V' | 'line' = 'line'): Pr
       );
     }
     const pts: Array<[number, number]> =
-      shape === 'V'
+      shapeArg === 'V'
         ? [
             [100, 50],
             [r.width / 2, r.height - 50],
@@ -214,12 +214,10 @@ export async function currentBubble(page: Page): Promise<BubbleSnap | null> {
   });
 }
 
-export async function pressKey(page: Page, key: string, durationMs = 600): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await page.keyboard.down(key as any);
+export async function pressKey(page: Page, key: KeyInput, durationMs = 600): Promise<void> {
+  await page.keyboard.down(key);
   await sleep(durationMs);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await page.keyboard.up(key as any);
+  await page.keyboard.up(key);
 }
 
 export function sleep(ms: number): Promise<void> {
