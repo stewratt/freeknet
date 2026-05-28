@@ -23,7 +23,6 @@ declare module 'troika-three-text' {
 
 interface ImportMetaEnv {
   readonly DEV: boolean;
-  readonly VITE_DISABLE_VOICE?: string;
 }
 
 interface ImportMeta {

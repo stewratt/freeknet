@@ -8,8 +8,6 @@ import type {
   ChatBroadcastMsg,
   EmoteBroadcastMsg,
   BallMsg,
-  RtcServerMsg,
-  RtcPayload,
 } from './protocol';
 
 export interface NetworkHandlers {
@@ -22,7 +20,6 @@ export interface NetworkHandlers {
   onEmote?: (msg: EmoteBroadcastMsg) => void;
   onBall?: (msg: BallMsg) => void;
   onPresence?: (msg: { count: number }) => void;
-  onRtc?: (msg: RtcServerMsg) => void;
 }
 
 export interface NetworkOpts {
@@ -134,10 +131,6 @@ export class Network {
       case 'presence':
         this.handlers.onPresence?.({ count: msg.count });
         break;
-
-      case 'rtc':
-        this.handlers.onRtc?.(msg);
-        break;
     }
   }
 
@@ -163,9 +156,5 @@ export class Network {
     const msg: ClientMsg =
       typeof on === 'boolean' ? { t: 'emote', name, on } : { t: 'emote', name };
     this.send(msg);
-  }
-
-  sendRtc(to: string, payload: RtcPayload): void {
-    this.send({ t: 'rtc', to, payload });
   }
 }

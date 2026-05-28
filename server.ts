@@ -1,6 +1,6 @@
 // freeknet server. http + ws on the same port, one big world (no rooms, no
-// persistence — every join is a fresh draw), server-authoritative ball
-// physics, and a webrtc signaling relay for proximity voice.
+// persistence — every join is a fresh draw), with server-authoritative ball
+// physics.
 //
 // state lives in memory. restart wipes everything. that's the vibe.
 
@@ -419,14 +419,6 @@ wss.on('connection', (rawWs: WebSocket) => {
       } else if (msg.name === 'bow') {
         broadcast({ t: 'emote', id, name: 'bow' }, id);
       }
-    } else if (msg.t === 'rtc') {
-      // signaling-only relay for webrtc proximity voice. forward the payload
-      // to a single target. payload size is small (SDP or a single ICE
-      // candidate); we don't inspect or rewrite it.
-      const target = players.get(msg.to);
-      if (!target) return;
-      const out: ServerMsg = { t: 'rtc', from: id, payload: msg.payload };
-      if (target.ws.readyState === 1) target.ws.send(JSON.stringify(out));
     }
   });
 

@@ -19,7 +19,6 @@
     "smoke:visual": "tsx smoketest/visual.ts",
     "smoke:presence": "tsx smoketest/presence.ts",
     "smoke:player-physics": "tsx smoketest/player-physics.ts",
-    "smoke:voice": "tsx smoketest/voice.ts",
     "smoke:all": "npm run smoke && npm run smoke:chat && npm run smoke:presence && npm run smoke:player-physics"
   },
   "dependencies": {

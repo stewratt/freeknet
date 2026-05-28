@@ -10,7 +10,6 @@ import { Ball } from './ball';
 import { createSky, HORIZON_COLOR } from './sky';
 import { createFloor, createGrid } from './world';
 import { createCamera, follow } from './camera';
-import { VoiceManager, setupVoiceUI } from './voice';
 
 const MOVE_SEND_INTERVAL = 1 / 15;
 
@@ -34,7 +33,6 @@ declare global {
       scene: THREE.Scene;
       renderer: THREE.WebGLRenderer;
       chat: ChatManager;
-      voice: VoiceManager;
     };
   }
 }
@@ -114,18 +112,6 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
 
   const presenceEl = document.getElementById('presence');
 
-  // voice manager — wired before network so onRtc has somewhere to dispatch.
-  // bots and the voice-disabled env both skip the UI.
-  const voiceDisabled = import.meta.env?.VITE_DISABLE_VOICE === 'true' || isBot;
-  const voice = new VoiceManager({
-    getLocalId: () => network.id,
-    sendSignal: (to, payload) => network.sendRtc(to, payload),
-    getRemotes: () => remotes,
-    getLocalPosition: () => local.position,
-    getLocalYaw: () => camCtl.yaw,
-  });
-  if (!voiceDisabled) setupVoiceUI({ voice });
-
   const network = new Network(
     {
       onWelcome: () => {
@@ -163,7 +149,6 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
         }
         drawingsById.delete(id);
         chat.clearForPlayer(id);
-        voice.onPeerLeft(id);
       },
       onUpdate: (msg) => {
         const rp = remotes.get(msg.id);
@@ -181,9 +166,6 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
       onBall: (msg) => {
         ball.receiveState(msg.x, msg.y, msg.z, msg.vx ?? 0, msg.vy ?? 0, msg.vz ?? 0);
       },
-      onRtc: (msg) => {
-        voice.onSignal(msg);
-      },
     },
     { isBot },
   );
@@ -191,7 +173,7 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
 
   // expose game internals for smoke tests / debugging. dev only.
   if (import.meta.env?.DEV) {
-    window.__game = { network, local, remotes, scene, renderer, chat, voice };
+    window.__game = { network, local, remotes, scene, renderer, chat };
   }
 
   window.addEventListener('resize', () => {
@@ -218,7 +200,6 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
     for (const rp of remotes.values()) rp.update(dt, camera.position);
     ball.update(dt);
     chat.update(dt);
-    voice.update(dt);
 
     moveSendTimer += dt;
     if (moveSendTimer >= MOVE_SEND_INTERVAL && network.connected && network.id) {

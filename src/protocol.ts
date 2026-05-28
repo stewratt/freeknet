@@ -32,13 +32,7 @@ export interface EmoteMsg {
   on?: boolean; // only used for toggle-style emotes (dance)
 }
 
-export interface RtcClientMsg {
-  t: 'rtc';
-  to: string; // remote peer id
-  payload: RtcPayload;
-}
-
-export type ClientMsg = JoinMsg | MoveMsg | ChatMsg | EmoteMsg | RtcClientMsg;
+export type ClientMsg = JoinMsg | MoveMsg | ChatMsg | EmoteMsg;
 
 // ---- server → client ----------------------------------------------------
 
@@ -117,12 +111,6 @@ export interface PresenceMsg {
   count: number; // total online players (humans + bots)
 }
 
-export interface RtcServerMsg {
-  t: 'rtc';
-  from: string; // peer who sent the signal
-  payload: RtcPayload;
-}
-
 export type ServerMsg =
   | WelcomeMsg
   | SnapshotMsg
@@ -132,16 +120,4 @@ export type ServerMsg =
   | ChatBroadcastMsg
   | EmoteBroadcastMsg
   | BallMsg
-  | PresenceMsg
-  | RtcServerMsg;
-
-// ---- WebRTC signaling payload ------------------------------------------
-
-// the server is a dumb relay for rtc messages — it doesn't introspect this.
-// the two shapes the client uses are SDP offer/answer and an ICE candidate.
-// either field is optional so we can extend later (e.g. with renegotiate
-// nudges) without changing the message envelope.
-export interface RtcPayload {
-  sdp?: RTCSessionDescriptionInit;
-  ice?: RTCIceCandidateInit;
-}
+  | PresenceMsg;
