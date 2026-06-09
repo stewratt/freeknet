@@ -11,7 +11,7 @@ import type {
 } from './protocol';
 
 export interface NetworkHandlers {
-  onWelcome?: (id: string) => void;
+  onWelcome?: (id: string, spawnX: number, spawnZ: number) => void;
   /** join handler receives snapshot players too (slightly different shape but compatible) */
   onJoin?: (p: SnapshotPlayer | JoinBroadcastMsg) => void;
   onLeave?: (id: string) => void;
@@ -72,7 +72,7 @@ export class Network {
     switch (msg.t) {
       case 'welcome':
         this.id = msg.id;
-        this.handlers.onWelcome?.(msg.id);
+        this.handlers.onWelcome?.(msg.id, msg.x ?? 0, msg.z ?? 0);
         break;
 
       case 'snapshot':

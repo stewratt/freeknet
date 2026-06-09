@@ -39,6 +39,11 @@ export type ClientMsg = JoinMsg | MoveMsg | ChatMsg | EmoteMsg;
 export interface WelcomeMsg {
   t: 'welcome';
   id: string;
+  // server-assigned spawn point in the floor plane (a random spot in a small
+  // disc around the origin so joiners don't stack on top of each other). the
+  // client positions its local body here; y is always feet-on-ground (0).
+  x: number;
+  z: number;
 }
 
 export interface SnapshotPlayer {
