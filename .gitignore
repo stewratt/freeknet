@@ -3,5 +3,9 @@ dist/
 .DS_Store
 *.log
 
+# build artifacts
+server.js
+*.tsbuildinfo
+
 # local smoke test artifacts
 shot-*.png

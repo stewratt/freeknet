@@ -1,10 +1,33 @@
+import type { CameraController } from './camera';
+
 const LOOK_YAW_RATE = 2.4;
 const LOOK_PITCH_RATE = 1.6;
 
-export function setupControls(canvas, { isChatActive }) {
-  // analog movement: mx in [-1,1] right, mz in [-1,1] forward (negative = forward)
-  // jump is edge-triggered: controls.js sets true, player.update consumes
-  const input = { mx: 0, mz: 0, jump: false };
+export interface InputState {
+  /** analog x in [-1, 1], + is right */
+  mx: number;
+  /** analog z in [-1, 1], - is forward */
+  mz: number;
+  /** edge-triggered jump; player.update() consumes by setting back to false */
+  jump: boolean;
+}
+
+interface ControlsOpts {
+  isChatActive: () => boolean;
+}
+
+export interface Controls {
+  input: InputState;
+  camera: CameraController;
+  update: (dt: number) => void;
+}
+
+interface CancellableEl extends HTMLElement {
+  _cancelStick?: () => void;
+}
+
+export function setupControls(canvas: HTMLCanvasElement, { isChatActive }: ControlsOpts): Controls {
+  const input: InputState = { mx: 0, mz: 0, jump: false };
 
   // keyboard intentions (kept separate so touch+keyboard don't fight)
   const key = { forward: false, back: false, left: false, right: false, spaceHeld: false };
@@ -12,31 +35,44 @@ export function setupControls(canvas, { isChatActive }) {
   // right-stick look rate, applied per frame
   const look = { yawRate: 0, pitchRate: 0 };
 
-  const camera = {
-    yaw: 0,
-    pitch: 0.25,
-    distance: 5,
-  };
+  const camera: CameraController = { yaw: 0, pitch: 0.25, distance: 5 };
 
   let mouseDragging = false;
-  let lastX = 0, lastY = 0;
+  let lastX = 0,
+    lastY = 0;
+  let moveTouchId: number | null = null;
+  let lookTouchId: number | null = null;
 
-  function updateKeyboardVector() {
-    let mx = 0, mz = 0;
+  const moveEl = document.getElementById('joystick-move') as CancellableEl | null;
+  const lookEl = document.getElementById('joystick-look') as CancellableEl | null;
+  const moveThumb = moveEl?.querySelector<HTMLElement>('.joystick-thumb') ?? null;
+  const lookThumb = lookEl?.querySelector<HTMLElement>('.joystick-thumb') ?? null;
+
+  // pinch-to-zoom for camera distance
+  const pinchTouches = new Map<number, { x: number; y: number }>();
+  let pinchStartDist = 0;
+  let pinchStartCamDist = 0;
+
+  function updateKeyboardVector(): void {
+    let mx = 0,
+      mz = 0;
     if (key.forward) mz -= 1;
-    if (key.back)    mz += 1;
-    if (key.left)    mx -= 1;
-    if (key.right)   mx += 1;
+    if (key.back) mz += 1;
+    if (key.left) mx -= 1;
+    if (key.right) mx += 1;
     const len = Math.hypot(mx, mz);
-    if (len > 1) { mx /= len; mz /= len; }
+    if (len > 1) {
+      mx /= len;
+      mz /= len;
+    }
     // keyboard only writes into input when no touch stick is active
-    if (!moveTouchId) {
+    if (moveTouchId === null) {
       input.mx = mx;
       input.mz = mz;
     }
   }
 
-  function setKey(code, down) {
+  function setKey(code: string, down: boolean): void {
     if (isChatActive()) {
       key.forward = key.back = key.left = key.right = false;
       key.spaceHeld = false;
@@ -44,15 +80,28 @@ export function setupControls(canvas, { isChatActive }) {
       return;
     }
     switch (code) {
-      case 'KeyW': case 'ArrowUp':    key.forward = down; break;
-      case 'KeyS': case 'ArrowDown':  key.back = down;    break;
-      case 'KeyA': case 'ArrowLeft':  key.left = down;    break;
-      case 'KeyD': case 'ArrowRight': key.right = down;   break;
+      case 'KeyW':
+      case 'ArrowUp':
+        key.forward = down;
+        break;
+      case 'KeyS':
+      case 'ArrowDown':
+        key.back = down;
+        break;
+      case 'KeyA':
+      case 'ArrowLeft':
+        key.left = down;
+        break;
+      case 'KeyD':
+      case 'ArrowRight':
+        key.right = down;
+        break;
       case 'Space':
         if (down && !key.spaceHeld) input.jump = true;
         key.spaceHeld = down;
         return;
-      default: return;
+      default:
+        return;
     }
     updateKeyboardVector();
   }
@@ -64,7 +113,10 @@ export function setupControls(canvas, { isChatActive }) {
   window.addEventListener('keyup', (e) => setKey(e.code, false));
   window.addEventListener('blur', () => {
     key.forward = key.back = key.left = key.right = false;
-    if (!moveTouchId) { input.mx = 0; input.mz = 0; }
+    if (moveTouchId === null) {
+      input.mx = 0;
+      input.mz = 0;
+    }
   });
 
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -92,33 +144,28 @@ export function setupControls(canvas, { isChatActive }) {
     camera.pitch = Math.max(-0.3, Math.min(0.9, camera.pitch));
   });
 
-  function endMouseDrag(e) {
+  function endMouseDrag(e: PointerEvent): void {
     if (e.pointerType === 'touch') return;
     mouseDragging = false;
-    try { canvas.releasePointerCapture(e.pointerId); } catch {}
+    try {
+      canvas.releasePointerCapture(e.pointerId);
+    } catch {}
   }
   canvas.addEventListener('pointerup', endMouseDrag);
   canvas.addEventListener('pointercancel', endMouseDrag);
 
-  canvas.addEventListener('wheel', (e) => {
-    camera.distance += e.deltaY * 0.005;
-    camera.distance = Math.max(2, Math.min(12, camera.distance));
-  }, { passive: true });
+  canvas.addEventListener(
+    'wheel',
+    (e) => {
+      camera.distance += e.deltaY * 0.005;
+      camera.distance = Math.max(2, Math.min(12, camera.distance));
+    },
+    { passive: true },
+  );
 
   // ---------- touch joysticks ----------
-  let moveTouchId = null;
-  let lookTouchId = null;
-  const moveEl = document.getElementById('joystick-move');
-  const lookEl = document.getElementById('joystick-look');
-  const moveThumb = moveEl?.querySelector('.joystick-thumb');
-  const lookThumb = lookEl?.querySelector('.joystick-thumb');
 
-  // pinch-to-zoom for camera distance
-  const pinchTouches = new Map(); // pointerId -> {x,y}
-  let pinchStartDist = 0;
-  let pinchStartCamDist = 0;
-
-  function joystickGeom(el) {
+  function joystickGeom(el: HTMLElement): { cx: number; cy: number; radius: number } {
     const r = el.getBoundingClientRect();
     return {
       cx: r.left + r.width / 2,
@@ -127,18 +174,23 @@ export function setupControls(canvas, { isChatActive }) {
     };
   }
 
-  function setThumb(thumb, dx, dy) {
+  function setThumb(thumb: HTMLElement, dx: number, dy: number): void {
     thumb.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
   }
 
-  function resetThumb(thumb) {
+  function resetThumb(thumb: HTMLElement): void {
     thumb.style.transform = `translate(-50%, -50%)`;
   }
 
-  function attachStick(el, thumb, onVector, onEnd) {
+  function attachStick(
+    el: CancellableEl | null,
+    thumb: HTMLElement | null,
+    onVector: (nx: number, ny: number) => void,
+    onEnd: () => void,
+  ): void {
     if (!el || !thumb) return;
-    let activeId = null;
-    let geom = null;
+    let activeId: number | null = null;
+    let geom: { cx: number; cy: number; radius: number } | null = null;
 
     el.addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'touch' && e.pointerType !== 'pen' && e.pointerType !== 'mouse') return;
@@ -154,8 +206,8 @@ export function setupControls(canvas, { isChatActive }) {
 
     el.addEventListener('pointermove', handleMove);
 
-    function handleMove(e) {
-      if (e.pointerId !== activeId) return;
+    function handleMove(e: PointerEvent): void {
+      if (e.pointerId !== activeId || !geom) return;
       const dx = e.clientX - geom.cx;
       const dy = e.clientY - geom.cy;
       const len = Math.hypot(dx, dy);
@@ -166,16 +218,18 @@ export function setupControls(canvas, { isChatActive }) {
         nx = dx / len;
         ny = dy / len;
       }
-      setThumb(thumb, nx * max, ny * max);
+      setThumb(thumb!, nx * max, ny * max);
       onVector(nx, ny);
     }
 
-    function end(e) {
+    function end(e: PointerEvent): void {
       if (e.pointerId !== activeId) return;
       activeId = null;
-      el.classList.remove('active');
-      try { el.releasePointerCapture(e.pointerId); } catch {}
-      resetThumb(thumb);
+      el!.classList.remove('active');
+      try {
+        el!.releasePointerCapture(e.pointerId);
+      } catch {}
+      resetThumb(thumb!);
       onEnd();
     }
     el.addEventListener('pointerup', end);
@@ -183,7 +237,7 @@ export function setupControls(canvas, { isChatActive }) {
     el.addEventListener('pointerleave', end);
 
     // expose for outer scope cancellation when chat opens
-    el._cancelStick = () => {
+    el._cancelStick = (): void => {
       if (activeId !== null) {
         activeId = null;
         el.classList.remove('active');
@@ -193,13 +247,18 @@ export function setupControls(canvas, { isChatActive }) {
     };
   }
 
-  attachStick(moveEl, moveThumb,
+  attachStick(
+    moveEl,
+    moveThumb,
     (nx, ny) => {
       moveTouchId = 1;
-      // small deadzone so resting thumb doesn't drift
       const dead = 0.12;
       const mag = Math.hypot(nx, ny);
-      if (mag < dead) { input.mx = 0; input.mz = 0; return; }
+      if (mag < dead) {
+        input.mx = 0;
+        input.mz = 0;
+        return;
+      }
       const scaled = (mag - dead) / (1 - dead);
       const k = scaled / mag;
       input.mx = nx * k;
@@ -207,17 +266,24 @@ export function setupControls(canvas, { isChatActive }) {
     },
     () => {
       moveTouchId = null;
-      input.mx = 0; input.mz = 0;
+      input.mx = 0;
+      input.mz = 0;
       updateKeyboardVector();
-    }
+    },
   );
 
-  attachStick(lookEl, lookThumb,
+  attachStick(
+    lookEl,
+    lookThumb,
     (nx, ny) => {
       lookTouchId = 1;
       const dead = 0.15;
       const mag = Math.hypot(nx, ny);
-      if (mag < dead) { look.yawRate = 0; look.pitchRate = 0; return; }
+      if (mag < dead) {
+        look.yawRate = 0;
+        look.pitchRate = 0;
+        return;
+      }
       const scaled = (mag - dead) / (1 - dead);
       const k = scaled / mag;
       look.yawRate = nx * k;
@@ -225,8 +291,9 @@ export function setupControls(canvas, { isChatActive }) {
     },
     () => {
       lookTouchId = null;
-      look.yawRate = 0; look.pitchRate = 0;
-    }
+      look.yawRate = 0;
+      look.pitchRate = 0;
+    },
   );
 
   // pinch-to-zoom on the game canvas surface (not on joysticks)
@@ -250,7 +317,7 @@ export function setupControls(canvas, { isChatActive }) {
       camera.distance = Math.max(2, Math.min(12, pinchStartCamDist * ratio));
     }
   });
-  function endPinch(e) {
+  function endPinch(e: PointerEvent): void {
     if (e.pointerType !== 'touch') return;
     pinchTouches.delete(e.pointerId);
     if (pinchTouches.size < 2) pinchStartDist = 0;
@@ -266,16 +333,20 @@ export function setupControls(canvas, { isChatActive }) {
       jumpBtn.classList.add('pressed');
       e.preventDefault();
     });
-    const release = () => jumpBtn.classList.remove('pressed');
+    const release = (): void => {
+      jumpBtn.classList.remove('pressed');
+    };
     jumpBtn.addEventListener('pointerup', release);
     jumpBtn.addEventListener('pointercancel', release);
     jumpBtn.addEventListener('pointerleave', release);
   }
 
-  function update(dt) {
+  function update(dt: number): void {
     if (isChatActive()) {
-      input.mx = 0; input.mz = 0;
-      look.yawRate = 0; look.pitchRate = 0;
+      input.mx = 0;
+      input.mz = 0;
+      look.yawRate = 0;
+      look.pitchRate = 0;
       moveEl?._cancelStick?.();
       lookEl?._cancelStick?.();
       return;
@@ -286,6 +357,10 @@ export function setupControls(canvas, { isChatActive }) {
       camera.pitch = Math.max(-0.3, Math.min(0.9, camera.pitch));
     }
   }
+
+  // suppress unused-variable warning for lookTouchId — it's a placeholder for
+  // future logic that distinguishes active look pointers.
+  void lookTouchId;
 
   return { input, camera, update };
 }

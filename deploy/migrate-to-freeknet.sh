@@ -10,7 +10,8 @@
 set -euo pipefail
 
 SERVER="${FREEKNET_SERVER:-root@178.156.249.95}"
-cd "$(dirname "$0")"
+# cd to the repo root (this script lives in deploy/)
+cd "$(dirname "$0")/.."
 
 echo "==> uploading new systemd unit"
 scp deploy/freeknet.service "$SERVER:/etc/systemd/system/freeknet.service"
@@ -57,4 +58,4 @@ systemctl is-active freeknet
 REMOTE
 
 echo "==> migration done. running deploy.sh to push current build"
-./deploy.sh
+./deploy/deploy.sh
