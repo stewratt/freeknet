@@ -138,23 +138,6 @@
         box-sizing: border-box;
       }
 
-      #repo-links {
-        position: fixed;
-        top: max(12px, env(safe-area-inset-top));
-        left: max(12px, env(safe-area-inset-left));
-        font-size: 12px;
-        color: #888;
-        z-index: 25;
-      }
-      #repo-links a {
-        color: #555;
-        text-decoration: none;
-        border-bottom: 1px dotted #aaa;
-      }
-      #repo-links a:hover {
-        color: #000;
-        border-bottom-color: #333;
-      }
       #hud {
         position: fixed;
         top: calc(max(12px, env(safe-area-inset-top)) + 22px);
@@ -326,11 +309,6 @@
 
     <div id="game-phase">
       <canvas id="game-canvas"></canvas>
-      <div id="repo-links">
-        <a href="https://github.com/stewratt/freeknet" target="_blank" rel="noopener"
-          >stewratt/freeknet</a
-        >
-      </div>
       <div id="hud">
         <div class="row">demo created by @smilebigforgod and @sstewrat</div>
         <div class="row">WASD move · space to jump · right-drag rotate camera</div>
