@@ -115,7 +115,20 @@ const BALL_RADIUS = 0.25;
 const BALL_MASS = 0.5;
 const PLAYER_RADIUS = 0.45;
 const PLAYER_HEIGHT = 1.8;
-const BALL_SPAWN = { x: -5, y: BALL_RADIUS + 0.5, z: 0 };
+const BALL_SPAWN = { x: -8, y: BALL_RADIUS + 0.5, z: 0 };
+
+// players spawn at a random point in a small disc around the origin (an
+// annulus, really — we keep them off dead-center) so multiple joiners don't
+// materialize stacked on the exact same spot. the max radius stays well
+// inside the ball's spawn so a fresh join never lands on the ball.
+const SPAWN_MIN_R = 1.5;
+const SPAWN_MAX_R = 4;
+
+function pickSpawn(): { x: number; z: number } {
+  const ang = Math.random() * Math.PI * 2;
+  const r = SPAWN_MIN_R + Math.random() * (SPAWN_MAX_R - SPAWN_MIN_R);
+  return { x: Math.cos(ang) * r, z: Math.sin(ang) * r };
+}
 // matches the snappier-than-real-world feel of the previous hand-rolled
 // physics. bounce defaults to -9.81 (real gravity).
 const WORLD_GRAVITY = -22;
@@ -292,6 +305,10 @@ interface AliveWS extends WebSocket {
   id?: string;
   isAlive?: boolean;
   joined?: boolean;
+  // spawn point chosen at connection time, sent in `welcome` and reused for
+  // this player's `join`/snapshot position so client and server agree.
+  spawnX?: number;
+  spawnZ?: number;
 }
 
 const wss = new WebSocketServer({ noServer: true });
@@ -317,7 +334,11 @@ wss.on('connection', (rawWs: WebSocket) => {
     ws.isAlive = true;
   });
 
-  send(ws, { t: 'welcome', id });
+  const spawn = pickSpawn();
+  ws.spawnX = spawn.x;
+  ws.spawnZ = spawn.z;
+
+  send(ws, { t: 'welcome', id, x: spawn.x, z: spawn.z });
 
   ws.on('message', (raw) => {
     let msg: ClientMsg;
@@ -331,14 +352,16 @@ wss.on('connection', (rawWs: WebSocket) => {
       if (ws.joined) return; // ignore re-joins on the same socket
       ws.joined = true;
       const isBot = msg.bot === true;
+      const spawnX = ws.spawnX ?? 0;
+      const spawnZ = ws.spawnZ ?? 0;
 
       const p: Player = {
         ws,
         drawing: msg.drawing,
         bot: isBot,
-        x: 0,
+        x: spawnX,
         y: 0,
-        z: 0,
+        z: spawnZ,
         rotY: 0,
         dance: false,
         lastMoveAt: Date.now(),
@@ -368,9 +391,9 @@ wss.on('connection', (rawWs: WebSocket) => {
           t: 'join',
           id,
           drawing: msg.drawing,
-          x: 0,
+          x: spawnX,
           y: 0,
-          z: 0,
+          z: spawnZ,
           rotY: 0,
           dance: false,
           bot: isBot,

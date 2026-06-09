@@ -77,6 +77,23 @@ export class LocalPlayer {
     this.controller.setBody(this.body);
   }
 
+  /** Move the player to a server-assigned spawn point (from the `welcome`
+   *  message) before play begins. Repositions the underlying bounce body —
+   *  its position is the capsule center, so we lift by halfCapsuleHeight to
+   *  keep feet on the ground — and mirrors into the THREE position the camera
+   *  reads. Safe to call once right after construction. */
+  setSpawn(x: number, z: number): void {
+    const halfCapsuleHeight = PLAYER_RADIUS + PLAYER_HEIGHT / 2;
+    // the controller tracks its own center position and writes it back to the
+    // body every update(), so moving only the body gets clobbered on the next
+    // frame. teleport the controller's position too (it's the capsule center).
+    this.controller.position.set([x, halfCapsuleHeight, z]);
+    this.body.position.set([x, halfCapsuleHeight, z]);
+    this.body.commitChanges();
+    this.position.set(x, 0, z);
+    this.group.position.copy(this.position);
+  }
+
   startBow(): void {
     this.bowTime = 0.0001; // any positive value starts the animation
   }

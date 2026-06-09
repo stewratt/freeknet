@@ -114,7 +114,11 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
 
   const network = new Network(
     {
-      onWelcome: () => {
+      onWelcome: (_id, spawnX, spawnZ) => {
+        // place the local body at the server-assigned spawn before the camera
+        // settles, so we don't pan in from the origin.
+        local.setSpawn(spawnX, spawnZ);
+        follow(camera, camCtl, local.position);
         const dataURL = drawingCanvas.toDataURL('image/png');
         network.sendJoin(dataURL);
       },

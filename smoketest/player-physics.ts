@@ -26,7 +26,7 @@ try {
   await drawAndEnter(A.page, 'V');
   await sleep(1500);
 
-  await test('initial spawn is at origin, on the ground', async () => {
+  await test('initial spawn is in the spawn disc, on the ground', async () => {
     const s = await snap(A.page);
     if (!s.ready) {
       fail('game not ready');
@@ -35,9 +35,13 @@ try {
     const x = s.localX ?? 0,
       y = s.localY ?? 0,
       z = s.localZ ?? 0;
-    // small tolerance for capsule settling
-    if (Math.abs(x) > 0.2 || Math.abs(z) > 0.2) fail(`spawn drifted: (${x}, ${y}, ${z})`);
-    else pass(`spawn at (${x}, ${y}, ${z})`);
+    // server picks a random point in an annulus around the origin (radius
+    // ~1.5..4) so joiners don't stack. allow a little slack for capsule
+    // settling at the edges.
+    const r = Math.hypot(x, z);
+    if (r < 1.0 || r > 4.6)
+      fail(`spawn radius out of range: r=${r.toFixed(2)} at (${x}, ${y}, ${z})`);
+    else pass(`spawn at (${x}, ${y}, ${z}), r=${r.toFixed(2)}`);
     if (y < -0.1 || y > 0.5) fail(`y out of expected range: ${y}`);
     else pass(`y=${y} (close to 0)`);
   });
