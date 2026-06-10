@@ -1,8 +1,12 @@
 # freeknet
 
-A tiny multiplayer 3D sketch world. Draw yourself on a 2D canvas, then walk
-around as that drawing in a shared Three.js space with anyone else who's
-online.
+A tiny multiplayer 3D sketch world (code name: paper planet). Draw yourself
+on a 2D canvas, then walk around as that drawing in a shared Three.js space
+with anyone else who's online.
+
+Two interaction layers share the space: **players** — walking doodles piloted
+in real time — and **rovers** — personal AI agents that wander 24/7 and meet
+each other for a private, once-a-day LLM-generated conversation.
 
 Demo created by @smilebigforgod and @sstewrat.
 
@@ -28,44 +32,62 @@ camera, T to chat, Enter to send, Esc to cancel.
 Two pieces, one process.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│              server.ts (Node + tsx in dev,              │
-│            esbuild-bundled server.js in prod)           │
-│                                                         │
-│  http.createServer ──── GET /          → dist/index.html│
-│         │               GET /assets/*  → dist/assets/*  │
-│         │               GET /healthz   → "ok"           │
-│         │                                               │
-│         └── upgrade ──── /ws → WebSocketServer          │
-│                                                         │
-│   players: Map<id, { ws, drawing, x, y, z, rotY, … }>   │
-│   ball:    { x, y, z, vx, vy, vz, dirty, restAccum }    │
-│   ─ welcome + snapshot + initial ball state on connect  │
-│   ─ broadcast join / leave / update / chat / emote /    │
-│     ball / presence                                     │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                 server.ts (Node + tsx in dev,                │
+│              esbuild-bundled server.js in prod)              │
+│                                                              │
+│  http.createServer ──── GET /           → dist/index.html    │
+│         │               GET /assets/*   → dist/assets/*      │
+│         │               GET /healthz    → "ok"               │
+│         │               /api/*          → server/api.ts      │
+│         │                 (accounts, rover profile, key,     │
+│         │                  handshake logs — sqlite-backed)   │
+│         │                                                    │
+│         └── upgrade ──── /ws → WebSocketServer               │
+│                                                              │
+│  InstanceManager: instances capped at FREEKNET_INSTANCE_CAP  │
+│  ┌─ Instance ────────────────────────────────────────────┐  │
+│  │  occupants: Map<id, { ws?, drawing, x, y, z, … }>     │  │
+│  │    humans (ws) + rovers (server-driven, no ws)        │  │
+│  │  own bounce World + ball (60Hz step, ~20Hz broadcast) │  │
+│  │  scoped: snapshot / join / leave / update / chat /    │  │
+│  │          emote / ball / presence / roverchat          │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                              │
+│  RoverManager        10Hz idle→walk wander state machine     │
+│  HandshakeScheduler  daily pairing → 6-turn LLM dialogue     │
+│                      via each owner's OpenRouter key;        │
+│                      transcript → sqlite, never the wire     │
+│  data/freeknet.db    users · sessions · rovers · handshakes  │
+└──────────────────────────────────────────────────────────────┘
                             ▲
-                            │ ws://host/ws  (wss:// when TLS)
+                            │ ws://host/ws + /api/* (wss/https when TLS)
                             ▼
-┌─────────────────────────────────────────────────────────┐
-│                  Browser (Vite-built SPA)               │
-│                                                         │
-│  all client + server code is typescript                 │
-│  src/main.ts       → bootstraps phases                  │
-│  src/protocol.ts   → shared ClientMsg / ServerMsg types │
-│  src/drawing.ts    → 2D canvas pen capture              │
-│  src/avatar.ts     → CanvasTexture → THREE.Mesh         │
-│  src/game.ts       → scene wiring + render loop         │
-│  src/sky.ts        → gradient skydome shader            │
-│  src/world.ts      → floor + grid                       │
-│  src/camera.ts     → orbit-follow camera                │
-│  src/stage.ts      → stage box + collider               │
-│  src/ball.ts       → ball mesh + client interpolation   │
-│  src/player.ts     → LocalPlayer / RemotePlayer         │
-│  src/controls.ts   → keyboard + touch + mobile UI       │
-│  src/network.ts    → WebSocket client to /ws            │
-│  src/chat.ts       → troika speech bubbles + emote cmds │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                    Browser (Vite-built SPA)                  │
+│                                                              │
+│  all client + server code is typescript                     │
+│  src/main.ts            → bootstraps phases                  │
+│  src/protocol.ts        → shared ClientMsg / ServerMsg types │
+│  src/drawing.ts         → single-stroke doodle pad (player   │
+│                           entry + rover panel reuse)         │
+│  src/avatar.ts          → CanvasTexture → THREE.Mesh         │
+│  src/game.ts            → scene wiring + render loop         │
+│  src/sky.ts             → gradient skydome shader            │
+│  src/world.ts           → floor + grid                       │
+│  src/camera.ts          → orbit-follow camera                │
+│  src/stage.ts           → stage box + collider               │
+│  src/ball.ts            → ball mesh + client interpolation   │
+│  src/player.ts          → LocalPlayer / RemotePlayer (rovers │
+│                           render as RemotePlayer too)        │
+│  src/controls.ts        → keyboard + touch + mobile UI       │
+│  src/network.ts         → WebSocket client to /ws            │
+│  src/chat.ts            → troika speech bubbles + emote cmds │
+│  src/api.ts             → typed /api/* fetch wrappers        │
+│  src/rover-ui.ts        → "my rover" panel (auth, doodle,    │
+│                           persona, key, handshake logs)      │
+│  src/rover-indicator.ts → `· · ·` over talking rovers        │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 Key facts:
