@@ -135,7 +135,9 @@ export function setupRoverPanel(): RoverPanel {
     const username = usernameInput.value.trim().toLowerCase();
     const password = passwordInput.value;
     const res =
-      kind === 'login' ? await api.login(username, password) : await api.register(username, password);
+      kind === 'login'
+        ? await api.login(username, password)
+        : await api.register(username, password);
     if (res.ok && res.data) {
       passwordInput.value = '';
       setMe(res.data);
@@ -195,9 +197,7 @@ export function setupRoverPanel(): RoverPanel {
       drewNewDoodle = false;
       redrawBtn.disabled = true;
       setMe(res.data);
-      roverMsg.textContent = res.data.rover?.active
-        ? '✓ saved — your rover is roaming'
-        : '✓ saved';
+      roverMsg.textContent = res.data.rover?.active ? '✓ saved — your rover is roaming' : '✓ saved';
       roverMsg.className = 'rp-ok';
     } else {
       roverMsg.textContent = res.error ?? 'save failed';
@@ -270,7 +270,8 @@ export function setupRoverPanel(): RoverPanel {
     if (fresh && logs.length === 0) {
       const p = document.createElement('p');
       p.className = 'rp-hint';
-      p.textContent = 'no handshakes yet — once a day, your rover will find another rover and talk.';
+      p.textContent =
+        'no handshakes yet — once a day, your rover will find another rover and talk.';
       logsList.appendChild(p);
     }
     for (const log of logs) logsList.appendChild(renderLog(log));

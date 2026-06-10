@@ -5,13 +5,7 @@
 // without a stable secret, which is fine for local hacking and unacceptable
 // in prod (deploy docs cover setting it via freeknet.env).
 
-import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-  scryptSync,
-  timingSafeEqual,
-} from 'crypto';
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 
 const SCRYPT_KEYLEN = 64;
 const SCRYPT_OPTS = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };

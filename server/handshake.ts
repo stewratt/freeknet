@@ -89,9 +89,7 @@ export class HandshakeScheduler {
     try {
       const now = Date.now();
       const day = todayUTC();
-      const eligible = [...this.rovers.rovers.values()].filter((s) =>
-        this.isEligible(s, now, day),
-      );
+      const eligible = [...this.rovers.rovers.values()].filter((s) => this.isEligible(s, now, day));
       if (eligible.length < 2) return;
 
       // group by instance, pair within each by proximity
@@ -220,7 +218,8 @@ export class HandshakeScheduler {
           });
         } catch (err) {
           if (err instanceof KeyInvalidError) dbq.setKeyError(state.userId, 'invalid');
-          else if (err instanceof OutOfCreditsError) dbq.setKeyError(state.userId, 'out_of_credits');
+          else if (err instanceof OutOfCreditsError)
+            dbq.setKeyError(state.userId, 'out_of_credits');
           throw err;
         }
 

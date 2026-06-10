@@ -128,9 +128,7 @@ const stmtGetUserById = db.prepare('SELECT * FROM users WHERE id = ?');
 const stmtCreateUser = db.prepare(
   'INSERT INTO users (username, pass_salt, pass_hash, created_at) VALUES (?, ?, ?, ?)',
 );
-const stmtSetApiKey = db.prepare(
-  'UPDATE users SET api_key_enc = ?, key_error = NULL WHERE id = ?',
-);
+const stmtSetApiKey = db.prepare('UPDATE users SET api_key_enc = ?, key_error = NULL WHERE id = ?');
 const stmtSetKeyError = db.prepare('UPDATE users SET key_error = ? WHERE id = ?');
 
 export function getUserByName(username: string): UserRow | undefined {

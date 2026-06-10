@@ -12,7 +12,9 @@ which is why freeknet lives on **port 3000** instead.
 ├── server.js              # esbuild-bundled server (output of `npm run build:server`)
 ├── package.json
 ├── package-lock.json
-└── node_modules/          # production deps only (ws)
+├── node_modules/          # production deps only (ws, better-sqlite3, ...)
+├── data/                  # sqlite database (accounts/rovers/handshakes) — NEVER touched by deploy.sh
+└── freeknet.env           # secrets (FREEKNET_KEY_SECRET); chmod 600 freeknet:freeknet
 
 /etc/systemd/system/freeknet.service   # systemd unit, runs as user `freeknet`
 ```
@@ -22,8 +24,42 @@ systemd unit:
 
 - `Type=simple`, restarts on failure, `WantedBy=multi-user.target`
 - `Environment=PORT=3000 HOST=0.0.0.0`
+- `EnvironmentFile=-/opt/freeknet/freeknet.env` (secrets; see below)
 - Hardening: `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=full`, `ProtectHome`
 - `AmbientCapabilities=CAP_NET_BIND_SERVICE` (unused at port 3000, but lets us drop to 80 later without changing the unit)
+
+## secrets (one-time per box)
+
+The server encrypts users' OpenRouter api keys at rest with
+`FREEKNET_KEY_SECRET` (AES-256-GCM). In production the process refuses to
+boot without it. Generate it once and keep it stable — rotating it orphans
+every stored key (users would re-paste theirs):
+
+```bash
+ssh root@178.156.249.95
+umask 077
+echo "FREEKNET_KEY_SECRET=$(openssl rand -hex 32)" > /opt/freeknet/freeknet.env
+chown freeknet:freeknet /opt/freeknet/freeknet.env
+systemctl restart freeknet
+```
+
+## database
+
+SQLite (WAL) at `/opt/freeknet/data/freeknet.db`, created on first boot.
+`deploy.sh` rsyncs only `dist server.js package.json package-lock.json`, so
+the database survives every deploy untouched. Backup one-liner:
+
+```bash
+ssh root@178.156.249.95 "sqlite3 /opt/freeknet/data/freeknet.db '.backup /tmp/freeknet-backup.db'" \
+  && scp root@178.156.249.95:/tmp/freeknet-backup.db ./backups/freeknet-$(date +%F).db
+```
+
+Ad-hoc moderation (no admin UI yet): `sudo -u freeknet sqlite3
+/opt/freeknet/data/freeknet.db` and update/delete rows in `users`/`rovers`.
+
+> **TLS note:** the site is plain HTTP on :3000 today. Before real users
+> paste OpenRouter keys, front it with nginx/Caddy + Let's Encrypt and set
+> `FREEKNET_SECURE_COOKIES=1` in `freeknet.env`.
 
 Source for the unit lives in [`deploy/freeknet.service`](deploy/freeknet.service).
 
@@ -71,9 +107,8 @@ ss -tlnp | grep :3000            # confirm bound to 3000
 ufw status                       # firewall rules
 ```
 
-Player count is whatever's in the server's `players` Map — peek at it via
-`journalctl` or add a `/stats` endpoint to `server.ts` if you want a real
-dashboard.
+Live occupancy: `curl http://178.156.249.95:3000/api/stats` returns
+per-instance human/rover counts.
 
 ## firewall
 
@@ -90,6 +125,9 @@ curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y nodejs
 useradd --system --home /opt/freeknet --shell /usr/sbin/nologin freeknet
 mkdir -p /opt/freeknet && chown -R freeknet:freeknet /opt/freeknet
+
+# secrets (see "secrets" section above)
+ssh root@<new-ip> 'umask 077 && echo "FREEKNET_KEY_SECRET=$(openssl rand -hex 32)" > /opt/freeknet/freeknet.env && chown freeknet:freeknet /opt/freeknet/freeknet.env'
 
 # from local
 scp deploy/freeknet.service root@<new-ip>:/etc/systemd/system/freeknet.service

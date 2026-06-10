@@ -116,8 +116,7 @@ async function main(): Promise<void> {
       await page.evaluate(() => {
         (document.getElementById('rp-personality') as HTMLTextAreaElement).value =
           'a zigzag who collects sunsets';
-        (document.getElementById('rp-intent-short') as HTMLInputElement).value =
-          'find a good hill';
+        (document.getElementById('rp-intent-short') as HTMLInputElement).value = 'find a good hill';
         (document.getElementById('rp-active') as HTMLInputElement).checked = true;
       });
       await click(page, 'rp-save');

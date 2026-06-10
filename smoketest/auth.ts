@@ -5,7 +5,7 @@
 // hit openrouter for real, and FREEKNET_AUTH_WINDOW_MS=5000 so the rate-limit
 // flood at the end doesn't lock out suites that run after this one.
 
-import { makeRunner } from './helpers';
+import { makeRunner, sleep } from './helpers';
 
 const API_URL = process.env.SMOKE_API_URL ?? 'http://localhost:8080';
 
@@ -131,6 +131,9 @@ async function main(): Promise<void> {
     }
     r.expect(got429, 'rate limiter returns 429 under flood');
     r.pass('rate limited');
+    // let the (short, FREEKNET_AUTH_WINDOW_MS=5000) window drain so suites
+    // that register accounts right after this one aren't locked out
+    await sleep(6000);
   });
 
   process.exit(r.summary() ? 0 : 1);

@@ -24,7 +24,7 @@
     "smoke:visual": "tsx smoketest/visual.ts",
     "smoke:presence": "tsx smoketest/presence.ts",
     "smoke:player-physics": "tsx smoketest/player-physics.ts",
-    "smoke:all": "npm run smoke && npm run smoke:chat && npm run smoke:presence && npm run smoke:player-physics"
+    "smoke:all": "npm run smoke && npm run smoke:chat && npm run smoke:presence && npm run smoke:player-physics && npm run smoke:auth && npm run smoke:rover-ui && npm run smoke:instancing && npm run smoke:rovers && npm run smoke:handshake"
   },
   "dependencies": {
     "@perplexdotgg/bounce": "^1.8.1",

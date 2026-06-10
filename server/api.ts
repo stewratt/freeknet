@@ -238,37 +238,37 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
   const route = `${req.method} ${path}`;
 
   try {
-    if (route === 'POST /api/register') return await handleRegister(req, res), true;
-    if (route === 'POST /api/login') return await handleLogin(req, res), true;
-    if (route === 'GET /api/stats') return sendJson(res, 200, statsProvider()), true;
+    if (route === 'POST /api/register') return (await handleRegister(req, res), true);
+    if (route === 'POST /api/login') return (await handleLogin(req, res), true);
+    if (route === 'GET /api/stats') return (sendJson(res, 200, statsProvider()), true);
 
     // everything below requires a session
     const user = getSessionUser(req);
     if (!user) {
       if (route === 'POST /api/logout') {
         clearSessionCookie(res);
-        return sendJson(res, 200, { ok: true }), true;
+        return (sendJson(res, 200, { ok: true }), true);
       }
-      return sendJson(res, 401, { error: 'not logged in' }), true;
+      return (sendJson(res, 401, { error: 'not logged in' }), true);
     }
 
     switch (route) {
       case 'POST /api/logout':
         endSession(req, res);
-        return sendJson(res, 200, { ok: true }), true;
+        return (sendJson(res, 200, { ok: true }), true);
       case 'GET /api/me':
-        return sendJson(res, 200, meToJson(user)), true;
+        return (sendJson(res, 200, meToJson(user)), true);
       case 'PUT /api/rover':
-        return await handlePutRover(req, res, user), true;
+        return (await handlePutRover(req, res, user), true);
       case 'PUT /api/rover/key':
-        return await handlePutKey(req, res, user), true;
+        return (await handlePutKey(req, res, user), true);
       case 'DELETE /api/rover/key':
         dbq.setApiKey(user.id, null);
-        return sendJson(res, 200, meToJson(dbq.getUserById(user.id)!)), true;
+        return (sendJson(res, 200, meToJson(dbq.getUserById(user.id)!)), true);
       case 'GET /api/rover/handshakes':
-        return handleListHandshakes(req, res, user), true;
+        return (handleListHandshakes(req, res, user), true);
       default:
-        return sendJson(res, 404, { error: 'not found' }), true;
+        return (sendJson(res, 404, { error: 'not found' }), true);
     }
   } catch (err) {
     console.error('api error:', err);
