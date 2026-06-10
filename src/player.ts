@@ -174,9 +174,11 @@ export class RemotePlayer {
   lastSpeed = 0;
   dance: boolean;
   bowTime = 0;
+  readonly isRover: boolean;
 
   constructor(initial: RemoteInit) {
     this.id = initial.id;
+    this.isRover = !!initial.rover;
     this.position = new THREE.Vector3(initial.x ?? 0, initial.y ?? 0, initial.z ?? 0);
     this.group.position.copy(this.position);
     this.buffer = [

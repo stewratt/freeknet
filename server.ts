@@ -10,9 +10,11 @@ import { readFile, stat } from 'fs/promises';
 import { join, extname, normalize } from 'path';
 import { fileURLToPath } from 'url';
 import type { ClientMsg, ServerMsg } from './src/protocol';
-import { handleApi, setStatsProvider } from './server/api';
+import { handleApi, setRoverHooks, setStatsProvider } from './server/api';
 import { abortRunningHandshakes, pruneExpiredSessions } from './server/db';
 import { InstanceManager, type Occupant } from './server/instances';
+import { RoverManager } from './server/rovers';
+import { seedRovers } from './server/seed';
 
 const PORT = Number(process.env.PORT ?? process.env.FREEKNET_PORT ?? 8080);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -89,7 +91,9 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
 // ---- world (instanced) ----------------------------------------------------
 
 export const instanceManager = new InstanceManager();
+export const roverManager = new RoverManager(instanceManager);
 setStatsProvider(() => instanceManager.stats());
+setRoverHooks({ onRoverChanged: (userId) => roverManager.onRoverChanged(userId) });
 
 function send(ws: WebSocket, msg: ServerMsg): void {
   if (ws.readyState === 1) ws.send(JSON.stringify(msg));
@@ -245,7 +249,7 @@ const ballTick = setInterval(() => {
   const dt = Math.min(0.1, (now - lastBallStep) / 1000);
   lastBallStep = now;
   for (const inst of instanceManager.instances.values()) {
-    if (inst.size() === 0) continue;
+    if (inst.humanCount() === 0) continue; // nobody watching; ball freezes
     const ballMsg = inst.physics.step(dt, now);
     if (ballMsg) inst.broadcast(ballMsg);
   }
@@ -276,6 +280,7 @@ function shutdown(): void {
   console.log('shutting down...');
   clearInterval(heartbeat);
   clearInterval(ballTick);
+  roverManager.stop();
   for (const client of wss.clients) {
     try {
       client.close(1001, 'server shutdown');
@@ -290,6 +295,8 @@ process.on('SIGTERM', shutdown);
 // written on completion so nothing leaks.
 abortRunningHandshakes();
 pruneExpiredSessions();
+seedRovers();
+roverManager.start();
 
 httpServer.listen(PORT, HOST, () => {
   console.log(`freeknet listening on http://${HOST}:${PORT}  (ws: /ws)`);
