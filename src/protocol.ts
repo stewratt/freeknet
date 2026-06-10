@@ -50,6 +50,7 @@ export interface SnapshotPlayer {
   rotY: number;
   dance: boolean;
   bot: boolean;
+  rover?: boolean; // server-driven npc agent; players can't interact with it
 }
 
 export interface SnapshotMsg {
@@ -67,6 +68,7 @@ export interface JoinBroadcastMsg {
   rotY: number;
   dance: boolean;
   bot: boolean;
+  rover?: boolean;
 }
 
 export interface LeaveMsg {
