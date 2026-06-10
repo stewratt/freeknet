@@ -14,6 +14,7 @@ import { handleApi, setRoverHooks, setStatsProvider } from './server/api';
 import { abortRunningHandshakes, pruneExpiredSessions } from './server/db';
 import { InstanceManager, type Occupant } from './server/instances';
 import { RoverManager } from './server/rovers';
+import { HandshakeScheduler } from './server/handshake';
 import { seedRovers } from './server/seed';
 
 const PORT = Number(process.env.PORT ?? process.env.FREEKNET_PORT ?? 8080);
@@ -92,6 +93,7 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
 
 export const instanceManager = new InstanceManager();
 export const roverManager = new RoverManager(instanceManager);
+const handshakeScheduler = new HandshakeScheduler(roverManager, instanceManager);
 setStatsProvider(() => instanceManager.stats());
 setRoverHooks({ onRoverChanged: (userId) => roverManager.onRoverChanged(userId) });
 
@@ -281,6 +283,7 @@ function shutdown(): void {
   clearInterval(heartbeat);
   clearInterval(ballTick);
   roverManager.stop();
+  handshakeScheduler.stop();
   for (const client of wss.clients) {
     try {
       client.close(1001, 'server shutdown');
@@ -297,6 +300,7 @@ abortRunningHandshakes();
 pruneExpiredSessions();
 seedRovers();
 roverManager.start();
+handshakeScheduler.start();
 
 httpServer.listen(PORT, HOST, () => {
   console.log(`freeknet listening on http://${HOST}:${PORT}  (ws: /ws)`);

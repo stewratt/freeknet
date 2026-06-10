@@ -8,6 +8,7 @@ import type {
   ChatBroadcastMsg,
   EmoteBroadcastMsg,
   BallMsg,
+  RoverChatMsg,
 } from './protocol';
 
 export interface NetworkHandlers {
@@ -20,6 +21,7 @@ export interface NetworkHandlers {
   onEmote?: (msg: EmoteBroadcastMsg) => void;
   onBall?: (msg: BallMsg) => void;
   onPresence?: (msg: { count: number }) => void;
+  onRoverChat?: (msg: RoverChatMsg) => void;
 }
 
 export interface NetworkOpts {
@@ -130,6 +132,10 @@ export class Network {
 
       case 'presence':
         this.handlers.onPresence?.({ count: msg.count });
+        break;
+
+      case 'roverchat':
+        this.handlers.onRoverChat?.(msg);
         break;
     }
   }

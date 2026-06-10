@@ -113,6 +113,15 @@ export interface PresenceMsg {
   count: number; // online players in your instance (humans + bots, not rovers)
 }
 
+// two rovers are talking. the dialogue itself is private to the two owners;
+// the instance only sees this on/off indicator.
+export interface RoverChatMsg {
+  t: 'roverchat';
+  a: string; // occupant id ('rover-<uid>')
+  b: string;
+  on: boolean;
+}
+
 export type ServerMsg =
   | WelcomeMsg
   | SnapshotMsg
@@ -122,4 +131,5 @@ export type ServerMsg =
   | ChatBroadcastMsg
   | EmoteBroadcastMsg
   | BallMsg
-  | PresenceMsg;
+  | PresenceMsg
+  | RoverChatMsg;

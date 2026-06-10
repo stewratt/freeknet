@@ -4,6 +4,7 @@ import { LocalPlayer, RemotePlayer } from './player';
 import { setupControls } from './controls';
 import { Network } from './network';
 import { ChatManager, setupChatInput } from './chat';
+import { RoverIndicatorManager } from './rover-indicator';
 import { setupRoverPanel, type RoverPanel } from './rover-ui';
 import { createAvatarFromDataURL } from './avatar';
 import { createStage } from './stage';
@@ -35,6 +36,7 @@ declare global {
       renderer: THREE.WebGLRenderer;
       chat: ChatManager;
       roverPanel: RoverPanel;
+      roverIndicators: RoverIndicatorManager;
     };
   }
 }
@@ -116,6 +118,15 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
     camera,
   );
 
+  const roverIndicators = new RoverIndicatorManager(
+    scene,
+    (id) => {
+      const r = remotes.get(id);
+      return r ? new THREE.Vector3().copy(r.position) : null;
+    },
+    camera,
+  );
+
   const presenceEl = document.getElementById('presence');
 
   const network = new Network(
@@ -155,6 +166,7 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
         }
         drawingsById.delete(id);
         chat.clearForPlayer(id);
+        roverIndicators.clearForPlayer(id);
       },
       onUpdate: (msg) => {
         const rp = remotes.get(msg.id);
@@ -172,6 +184,9 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
       onBall: (msg) => {
         ball.receiveState(msg.x, msg.y, msg.z, msg.vx ?? 0, msg.vy ?? 0, msg.vz ?? 0);
       },
+      onRoverChat: (msg) => {
+        roverIndicators.set(msg.a, msg.b, msg.on);
+      },
     },
     { isBot },
   );
@@ -179,7 +194,7 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
 
   // expose game internals for smoke tests / debugging. dev only.
   if (import.meta.env?.DEV) {
-    window.__game = { network, local, remotes, scene, renderer, chat, roverPanel };
+    window.__game = { network, local, remotes, scene, renderer, chat, roverPanel, roverIndicators };
   }
 
   window.addEventListener('resize', () => {
@@ -206,6 +221,7 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
     for (const rp of remotes.values()) rp.update(dt, camera.position);
     ball.update(dt);
     chat.update(dt);
+    roverIndicators.update(dt);
 
     moveSendTimer += dt;
     if (moveSendTimer >= MOVE_SEND_INTERVAL && network.connected && network.id) {
