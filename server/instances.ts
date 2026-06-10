@@ -58,7 +58,8 @@ export class Instance {
   }
 
   maybeBroadcastPresence(): void {
-    const count = this.occupants.size;
+    // rovers are npcs; "N online" means people (and their puppeteer bots)
+    const count = this.humanCount();
     if (count === this.lastPresenceCount) return;
     this.lastPresenceCount = count;
     this.broadcast({ t: 'presence', count });

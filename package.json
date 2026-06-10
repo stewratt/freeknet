@@ -18,6 +18,7 @@
     "smoke:auth": "tsx smoketest/auth.ts",
     "smoke:instancing": "tsx smoketest/instancing.ts",
     "smoke:rovers": "tsx smoketest/rovers.ts",
+    "smoke:rover-ui": "tsx smoketest/rover-ui.ts",
     "smoke:chat": "tsx smoketest/chat.ts",
     "smoke:visual": "tsx smoketest/visual.ts",
     "smoke:presence": "tsx smoketest/presence.ts",

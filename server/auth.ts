@@ -64,8 +64,9 @@ export function getSessionUser(req: IncomingMessage): UserRow | undefined {
 // ---- rate limiting --------------------------------------------------------------
 
 // sliding window per ip for register/login. in-memory is fine: a restart
-// resetting the limiter is harmless, and the map self-prunes.
-const WINDOW_MS = 5 * 60 * 1000;
+// resetting the limiter is harmless, and the map self-prunes. the window is
+// env-tunable so smoke tests can flood it without poisoning later suites.
+const WINDOW_MS = Number(process.env.FREEKNET_AUTH_WINDOW_MS ?? 5 * 60 * 1000);
 const MAX_ATTEMPTS = 10;
 const attempts = new Map<string, number[]>();
 

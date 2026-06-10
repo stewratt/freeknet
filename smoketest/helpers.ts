@@ -45,6 +45,8 @@ export async function newSession(browser: Browser, label = ''): Promise<Session>
     if (m.type() !== 'error') return;
     const t = m.text();
     if (t.includes('favicon') || t.includes('404')) return;
+    // the rover panel probes /api/me on load; a 401 for guests is expected
+    if (t.includes('401')) return;
     errors.push(`${prefix}CONSOLE: ${t}`);
   });
   await page.goto(BASE_URL, { waitUntil: 'networkidle2', timeout: 15000 });
@@ -107,6 +109,7 @@ export interface RemoteSnap {
   bufLen: number;
   bufLastZ: number | null;
   hasAvatar: boolean;
+  isRover: boolean;
 }
 
 export interface GameSnap {
@@ -140,6 +143,7 @@ export async function snap(page: Page): Promise<GameSnap> {
         bufLen: buf.length,
         bufLastZ: last.z != null ? +last.z.toFixed(2) : null,
         hasAvatar: !!rp.avatar,
+        isRover: !!rp.isRover,
       });
     }
     return {

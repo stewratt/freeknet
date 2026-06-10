@@ -7,11 +7,26 @@ interface Point {
   y: number;
 }
 
-export function setupDrawing({ onEnter }: SetupDrawingOpts): void {
-  const canvas = document.getElementById('draw-canvas') as HTMLCanvasElement;
+export interface DoodlePadOpts {
+  onFinishedChange?: (finished: boolean) => void;
+}
+
+export interface DoodlePad {
+  readonly canvas: HTMLCanvasElement;
+  reset(): void;
+  isFinished(): boolean;
+  toDataURL(): string;
+  /** show an existing doodle (e.g. a saved rover); cleared on next stroke. */
+  setBackground(dataUrl: string): void;
+}
+
+// the single-stroke doodle pad: click, draw one continuous line, release.
+// used by the entry "draw yourself" phase and by the rover profile panel.
+export function createDoodlePad(
+  canvas: HTMLCanvasElement,
+  { onFinishedChange }: DoodlePadOpts = {},
+): DoodlePad {
   const ctx = canvas.getContext('2d')!;
-  const enterBtn = document.getElementById('enter-btn') as HTMLButtonElement;
-  const redrawBtn = document.getElementById('redraw-btn') as HTMLButtonElement;
 
   let drawing = false;
   let finished = false;
@@ -28,14 +43,18 @@ export function setupDrawing({ onEnter }: SetupDrawingOpts): void {
     ctx.lineJoin = 'round';
   }
 
+  function setFinished(f: boolean): void {
+    if (finished === f) return;
+    finished = f;
+    onFinishedChange?.(f);
+  }
+
   function reset(): void {
     drawing = false;
-    finished = false;
     points = [];
     clear();
     setupStroke();
-    enterBtn.disabled = true;
-    redrawBtn.disabled = true;
+    setFinished(false);
   }
 
   function getPos(e: PointerEvent): Point {
@@ -87,20 +106,47 @@ export function setupDrawing({ onEnter }: SetupDrawingOpts): void {
       points = [];
       return;
     }
-    finished = true;
-    enterBtn.disabled = false;
-    redrawBtn.disabled = false;
+    setFinished(true);
   }
 
   canvas.addEventListener('pointerup', endStroke);
   canvas.addEventListener('pointercancel', endStroke);
   canvas.addEventListener('pointerleave', endStroke);
 
-  redrawBtn.addEventListener('click', reset);
-  enterBtn.addEventListener('click', () => {
-    if (!finished) return;
-    onEnter(canvas);
+  reset();
+
+  return {
+    canvas,
+    reset,
+    isFinished: () => finished,
+    toDataURL: () => canvas.toDataURL('image/png'),
+    setBackground: (dataUrl: string) => {
+      const img = new Image();
+      img.addEventListener('load', () => {
+        if (finished || drawing) return; // user already started over
+        clear();
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      });
+      img.src = dataUrl;
+    },
+  };
+}
+
+export function setupDrawing({ onEnter }: SetupDrawingOpts): void {
+  const canvas = document.getElementById('draw-canvas') as HTMLCanvasElement;
+  const enterBtn = document.getElementById('enter-btn') as HTMLButtonElement;
+  const redrawBtn = document.getElementById('redraw-btn') as HTMLButtonElement;
+
+  const pad = createDoodlePad(canvas, {
+    onFinishedChange: (finished) => {
+      enterBtn.disabled = !finished;
+      redrawBtn.disabled = !finished;
+    },
   });
 
-  reset();
+  redrawBtn.addEventListener('click', () => pad.reset());
+  enterBtn.addEventListener('click', () => {
+    if (!pad.isFinished()) return;
+    onEnter(canvas);
+  });
 }

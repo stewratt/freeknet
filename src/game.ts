@@ -4,6 +4,7 @@ import { LocalPlayer, RemotePlayer } from './player';
 import { setupControls } from './controls';
 import { Network } from './network';
 import { ChatManager, setupChatInput } from './chat';
+import { setupRoverPanel, type RoverPanel } from './rover-ui';
 import { createAvatarFromDataURL } from './avatar';
 import { createStage } from './stage';
 import { Ball } from './ball';
@@ -33,6 +34,7 @@ declare global {
       scene: THREE.Scene;
       renderer: THREE.WebGLRenderer;
       chat: ChatManager;
+      roverPanel: RoverPanel;
     };
   }
 }
@@ -93,8 +95,12 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
     },
   });
 
+  document.body.classList.add('in-game');
+  const roverPanel = setupRoverPanel();
+
   const controls = setupControls(canvas, {
-    isChatActive: () => chatInput.isActive(),
+    // movement keys are suppressed while typing in chat OR in the rover panel
+    isChatActive: () => chatInput.isActive() || roverPanel.isOpen(),
   });
   const { input, camera: camCtl } = controls;
 
@@ -173,7 +179,7 @@ export function startGame(drawingCanvas: HTMLCanvasElement): void {
 
   // expose game internals for smoke tests / debugging. dev only.
   if (import.meta.env?.DEV) {
-    window.__game = { network, local, remotes, scene, renderer, chat };
+    window.__game = { network, local, remotes, scene, renderer, chat, roverPanel };
   }
 
   window.addEventListener('resize', () => {

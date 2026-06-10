@@ -272,6 +272,181 @@
         bottom: max(16px, env(safe-area-inset-bottom));
       }
 
+      /* ---------- rover panel ---------- */
+      #rover-btn {
+        position: fixed;
+        top: max(12px, env(safe-area-inset-top));
+        right: max(12px, env(safe-area-inset-right));
+        z-index: 40;
+        display: none;
+        font-size: 13px;
+        padding: 8px 14px;
+      }
+      body.in-game #rover-btn {
+        display: block;
+      }
+      #rover-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: min(340px, 100vw);
+        background: #fff;
+        border-left: 1px solid #bbb;
+        box-shadow: -6px 0 24px rgba(0, 0, 0, 0.08);
+        z-index: 50;
+        transform: translateX(105%);
+        transition: transform 0.18s ease-out;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+        user-select: text;
+        -webkit-user-select: text;
+      }
+      #rover-panel.open {
+        transform: translateX(0);
+      }
+      .rp-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 16px 10px;
+        border-bottom: 1px solid #eee;
+      }
+      .rp-head span {
+        font-weight: 300;
+        letter-spacing: 0.05em;
+        color: #777;
+      }
+      #rp-close {
+        border: none;
+        background: none;
+        font-size: 18px;
+        padding: 2px 8px;
+        color: #999;
+      }
+      .rp-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px 16px;
+      }
+      #rover-panel input[type='text'],
+      #rover-panel input[type='password'],
+      #rover-panel textarea {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        margin-bottom: 8px;
+        border: 1px solid #ccc;
+        border-radius: 2px;
+        font: inherit;
+        font-size: 14px;
+        background: #fff;
+        outline: none;
+      }
+      #rover-panel textarea {
+        height: 72px;
+        resize: vertical;
+      }
+      .rp-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .rp-hint {
+        font-size: 12px;
+        color: #999;
+        margin: 6px 0;
+      }
+      .rp-error {
+        font-size: 12px;
+        color: #b33;
+        margin: 6px 0;
+      }
+      .rp-ok {
+        font-size: 12px;
+        color: #2a7;
+        margin: 6px 0;
+      }
+      .rp-tabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 12px;
+      }
+      .rp-tab {
+        flex: 1;
+        padding: 7px 4px;
+        font-size: 12px;
+        border: 1px solid #ddd;
+        background: #fafafa;
+        color: #888;
+      }
+      .rp-tab.active {
+        border-color: #888;
+        background: #fff;
+        color: #222;
+      }
+      #rover-canvas {
+        display: block;
+        width: 160px;
+        aspect-ratio: 2 / 3;
+        border: 1px solid #222;
+        cursor: crosshair;
+        touch-action: none;
+        background: #fff;
+        margin: 0 auto 8px;
+      }
+      .rp-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-top: 1px solid #eee;
+        padding: 10px 16px;
+        font-size: 12px;
+        color: #888;
+      }
+      .rp-foot button {
+        font-size: 12px;
+        padding: 5px 10px;
+      }
+      .rp-check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #555;
+        margin: 4px 0 10px;
+        cursor: pointer;
+      }
+      .rp-log {
+        border: 1px solid #eee;
+        border-radius: 2px;
+        margin-bottom: 8px;
+        font-size: 13px;
+      }
+      .rp-log summary {
+        padding: 8px 10px;
+        cursor: pointer;
+        color: #555;
+      }
+      .rp-log-lines {
+        padding: 4px 10px 8px;
+        border-top: 1px solid #f0f0f0;
+      }
+      .rp-line {
+        margin: 6px 0;
+        padding: 6px 10px;
+        background: #f4f4f4;
+        border-radius: 8px 8px 8px 2px;
+        margin-right: 24px;
+      }
+      .rp-line-mine {
+        background: #e8f1ff;
+        border-radius: 8px 8px 2px 8px;
+        margin-right: 0;
+        margin-left: 24px;
+      }
+
       /* narrow landscape: smaller joysticks so they don't dominate the screen */
       @media (orientation: landscape) and (max-height: 500px) {
         .joystick {
@@ -325,6 +500,107 @@
         <div class="joystick-label">LOOK</div>
         <div class="joystick-base"></div>
         <div class="joystick-thumb"></div>
+      </div>
+      <button id="rover-btn" type="button">my rover</button>
+      <div id="rover-panel">
+        <div class="rp-head">
+          <span>my rover</span>
+          <button id="rp-close" type="button" aria-label="close">✕</button>
+        </div>
+        <div class="rp-body">
+          <div id="rp-auth">
+            <p class="rp-hint">
+              a rover is a little agent that wanders this world for you, day and night. log in to
+              create yours.
+            </p>
+            <input
+              id="rp-username"
+              type="text"
+              maxlength="20"
+              placeholder="username"
+              autocomplete="username"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <input
+              id="rp-password"
+              type="password"
+              maxlength="128"
+              placeholder="password"
+              autocomplete="current-password"
+            />
+            <div class="rp-row">
+              <button id="rp-login" type="button">log in</button>
+              <button id="rp-register" type="button">sign up</button>
+            </div>
+            <p id="rp-auth-error" class="rp-error"></p>
+          </div>
+          <div id="rp-main" style="display: none">
+            <div class="rp-tabs">
+              <button class="rp-tab active" data-tab="rover" type="button">rover</button>
+              <button class="rp-tab" data-tab="key" type="button">api key</button>
+              <button class="rp-tab" data-tab="logs" type="button">handshakes</button>
+            </div>
+            <div id="rp-tab-rover">
+              <canvas id="rover-canvas" width="500" height="750"></canvas>
+              <div class="rp-row">
+                <button id="rp-redraw" type="button" disabled>redraw</button>
+              </div>
+              <p class="rp-hint">draw your rover — one continuous line, like yourself.</p>
+              <textarea
+                id="rp-personality"
+                maxlength="500"
+                placeholder="personality — who is this rover?"
+              ></textarea>
+              <input
+                id="rp-intent-short"
+                type="text"
+                maxlength="200"
+                placeholder="right now it wants to..."
+              />
+              <input
+                id="rp-intent-long"
+                type="text"
+                maxlength="200"
+                placeholder="its long-term dream..."
+              />
+              <label class="rp-check">
+                <input id="rp-active" type="checkbox" />
+                roaming (rover is out in the world)
+              </label>
+              <button id="rp-save" type="button">save rover</button>
+              <p id="rp-rover-msg" class="rp-hint"></p>
+            </div>
+            <div id="rp-tab-key" style="display: none">
+              <p id="rp-key-status" class="rp-hint"></p>
+              <p class="rp-hint">
+                your rover speaks through your own
+                <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">openrouter</a>
+                key. it is stored encrypted and never shown again.
+              </p>
+              <input
+                id="rp-key-input"
+                type="password"
+                maxlength="256"
+                placeholder="sk-or-..."
+                autocomplete="off"
+              />
+              <div class="rp-row">
+                <button id="rp-key-save" type="button">save key</button>
+                <button id="rp-key-remove" type="button" style="display: none">remove</button>
+              </div>
+              <p id="rp-key-msg" class="rp-hint"></p>
+            </div>
+            <div id="rp-tab-logs" style="display: none">
+              <div id="rp-logs-list"></div>
+              <button id="rp-logs-more" type="button" style="display: none">load more</button>
+            </div>
+            <div class="rp-foot">
+              <span id="rp-user"></span>
+              <button id="rp-logout" type="button">log out</button>
+            </div>
+          </div>
+        </div>
       </div>
       <button id="jump-btn" type="button" aria-label="jump">JUMP</button>
       <div id="chat-bar">

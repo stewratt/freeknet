@@ -32,11 +32,14 @@ try {
       fail('B game not ready (renderer init failed?)');
       return;
     }
-    if (a.remoteCount !== 1) fail(`A sees ${a.remoteCount} remotes, want 1`);
+    // rovers may roam the dev world; this test only counts human remotes
+    const aHumans = (a.remotes ?? []).filter((r) => !r.isRover);
+    const bHumans = (b.remotes ?? []).filter((r) => !r.isRover);
+    if (aHumans.length !== 1) fail(`A sees ${aHumans.length} human remotes, want 1`);
     else pass('A sees 1 remote');
-    if (b.remoteCount !== 1) fail(`B sees ${b.remoteCount} remotes, want 1`);
+    if (bHumans.length !== 1) fail(`B sees ${bHumans.length} human remotes, want 1`);
     else pass('B sees 1 remote');
-    if (!a.remotes?.[0]?.hasAvatar) fail('A has no avatar for B yet');
+    if (!aHumans[0]?.hasAvatar) fail('A has no avatar for B yet');
     else pass('A has B avatar');
   });
 
@@ -51,7 +54,7 @@ try {
     await B.page.bringToFront();
     await sleep(800);
     const bSeeingA = await snap(B.page);
-    const r0 = bSeeingA.remotes?.[0];
+    const r0 = (bSeeingA.remotes ?? []).find((r) => !r.isRover);
     const z = r0?.z ?? 0;
     const bz = r0?.bufLastZ ?? 0;
     if (Math.abs(z) < 0.3 && Math.abs(bz) < 0.3) {

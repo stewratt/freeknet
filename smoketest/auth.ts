@@ -2,7 +2,8 @@
 // assumes the server is running (npm start / npm run server) on :8080.
 //
 // run with FREEKNET_LLM_MOCK=1 on the server so the api key check doesn't
-// hit openrouter for real.
+// hit openrouter for real, and FREEKNET_AUTH_WINDOW_MS=5000 so the rate-limit
+// flood at the end doesn't lock out suites that run after this one.
 
 import { makeRunner } from './helpers';
 
@@ -109,6 +110,13 @@ async function main(): Promise<void> {
     const me = await fresh.req('GET', '/api/me');
     r.expect(me.status === 401, 'session dead after logout');
     r.pass('login lifecycle works');
+  });
+
+  await r.test('rover deactivates for cleanup', async () => {
+    // leave the dev db tidy: an active rover would wander every later test run
+    const off = await c.req('PUT', '/api/rover', { active: false });
+    r.expect(off.status === 200 && off.json.rover?.active === false, 'rover off');
+    r.pass('dev world left clean');
   });
 
   await r.test('auth rate limit', async () => {

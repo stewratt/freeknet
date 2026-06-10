@@ -110,7 +110,7 @@ export interface BallMsg {
 
 export interface PresenceMsg {
   t: 'presence';
-  count: number; // total online players (humans + bots)
+  count: number; // online players in your instance (humans + bots, not rovers)
 }
 
 export type ServerMsg =
