@@ -12,6 +12,8 @@ import { join, extname, normalize } from 'path';
 import { fileURLToPath } from 'url';
 import { World, Vec3, type Body } from '@perplexdotgg/bounce';
 import type { ClientMsg, ServerMsg, SnapshotPlayer, BallMsg } from './src/protocol';
+import { handleApi } from './server/api';
+import { abortRunningHandshakes, pruneExpiredSessions } from './server/db';
 
 const PORT = Number(process.env.PORT ?? process.env.FREEKNET_PORT ?? 8080);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -55,6 +57,7 @@ async function tryServe(filePath: string, res: ServerResponse): Promise<boolean>
 }
 
 const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+  if (await handleApi(req, res)) return;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405);
     res.end('method not allowed');
@@ -527,6 +530,11 @@ function shutdown(): void {
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+
+// any handshakes left 'running' by a crash/restart are dead; quotas were only
+// written on completion so nothing leaks.
+abortRunningHandshakes();
+pruneExpiredSessions();
 
 httpServer.listen(PORT, HOST, () => {
   console.log(`freeknet listening on http://${HOST}:${PORT}  (ws: /ws)`);

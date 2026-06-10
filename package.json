@@ -15,6 +15,7 @@
     "deploy": "./deploy/deploy.sh",
     "start": "concurrently -k -n server,client -c blue,green \"npm run server\" \"npm run dev\"",
     "smoke": "tsx smoketest/multiplayer.ts",
+    "smoke:auth": "tsx smoketest/auth.ts",
     "smoke:chat": "tsx smoketest/chat.ts",
     "smoke:visual": "tsx smoketest/visual.ts",
     "smoke:presence": "tsx smoketest/presence.ts",
@@ -24,11 +25,13 @@
   "dependencies": {
     "@perplexdotgg/bounce": "^1.8.1",
     "@perplexdotgg/bounce-character-controller": "^0.3.0",
+    "better-sqlite3": "^12.10.0",
     "three": "^0.160.0",
     "troika-three-text": "^0.49.1",
     "ws": "^8.16.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.7.4",
     "@types/three": "^0.160.0",
     "@types/ws": "^8.5.12",

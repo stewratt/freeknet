@@ -15,5 +15,5 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node", "three", "ws"]
   },
-  "include": ["src/**/*.ts", "smoketest/**/*.ts", "server.ts"]
+  "include": ["src/**/*.ts", "smoketest/**/*.ts", "server.ts", "server/**/*.ts"]
 }

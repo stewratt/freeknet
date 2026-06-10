@@ -10,6 +10,8 @@ WorkingDirectory=/opt/freeknet
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=HOST=0.0.0.0
+# holds FREEKNET_KEY_SECRET (and any other secrets); owned freeknet:freeknet, mode 600
+EnvironmentFile=-/opt/freeknet/freeknet.env
 ExecStart=/usr/bin/node /opt/freeknet/server.js
 Restart=on-failure
 RestartSec=2

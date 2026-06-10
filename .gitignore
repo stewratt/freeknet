@@ -3,6 +3,9 @@ dist/
 .DS_Store
 *.log
 
+# sqlite database (accounts, rovers, handshakes)
+data/
+
 # build artifacts
 server.js
 *.tsbuildinfo
