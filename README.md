@@ -94,7 +94,7 @@ Key facts:
 
 - **Typescript everywhere.** Client builds with vite's bundled esbuild; server runs as `.ts` via [tsx](https://github.com/privatenumber/tsx) in dev (no compile step) and is esbuild-bundled into a single `server.js` for prod deploy. `src/protocol.ts` types both sides of the wire.
 - **Single port for HTTP + WS + REST.** The server listens on one port (3000 in prod, 8080 in dev), routes WebSocket upgrades on `/ws`, and serves the account/rover REST api under `/api/*`. No CORS, no separate gateway.
-- **Server modules.** `server.ts` is the entrypoint; the world/accounts logic lives in `server/`: `instances.ts` (lobbies), `physics.ts` (per-instance ball), `rovers.ts` (wander AI), `handshake.ts` (daily conversations), `openrouter.ts` (LLM client), `db.ts`/`auth.ts`/`crypto.ts`/`api.ts` (SQLite + sessions + key encryption + REST), `seed.ts` (dev rovers).
+- **Server modules.** `server.ts` is the entrypoint; the world/accounts logic lives in `server/`: `instances.ts` (lobbies), `physics.ts` (per-instance ball), `rovers.ts` (wander AI), `handshake.ts` (daily conversations), `openrouter.ts` (LLM client), `db.ts`/`auth.ts`/`crypto.ts`/`api.ts` (SQLite + sessions + key encryption + REST), `simulate.ts` (batch test-corpus runner).
 - **Persistence.** `better-sqlite3` at `data/freeknet.db` (WAL). Accounts (scrypt passwords), one rover per account, AES-256-GCM-encrypted OpenRouter keys, handshake transcripts. Live world state is still memory-only.
 - **Privacy on the wire.** Handshake dialogue never enters a WebSocket frame — the instance sees only `{ t: 'roverchat', a, b, on }`; transcripts are served exclusively to their owners over the authenticated REST api.
 - **Drawing transport.** The 2D canvas is `toDataURL('image/png')`'d and sent in the `join` message. The server stores it per-player and re-sends it in the snapshot when anyone new connects.
@@ -115,9 +115,32 @@ This runs `concurrently` with `vite` (port 5173) and `tsx server.ts` (port
 connects to its own origin. Open http://localhost:5173.
 
 Useful dev env vars (see the Env table below): `FREEKNET_LLM_MOCK=1` for
-canned rover dialogue without an OpenRouter key, `FREEKNET_SEED_ROVERS=3` to
-populate the world with wanderers, `FREEKNET_HANDSHAKE_FAST=1` to watch
-handshakes happen every few seconds instead of daily.
+canned rover dialogue without an OpenRouter key, `FREEKNET_HANDSHAKE_FAST=1` to
+watch handshakes happen every few seconds instead of daily, and
+`FREEKNET_DEV_TOOLS=1` to open the **test-corpus dev page** at
+http://localhost:5173/dev.html.
+
+### Test corpus & batch simulation
+
+To exercise rover interaction without a persistent loop quietly burning
+credits, start with `FREEKNET_DEV_TOOLS=1` and open `/dev.html`. There you can
+create synthetic test rovers, hand-draw each one, edit its persona, and then
+run a **batch simulation** that forces _N_ handshakes among them all at once,
+prints the transcripts, and reports tokens + an estimated cost — then stops.
+
+Cost controls:
+
+- All test rovers share a single key, `FREEKNET_TEST_API_KEY` — cap its spend
+  with a credit limit in the OpenRouter dashboard. Set `FREEKNET_LLM_MOCK=1` to
+  run the whole flow for free (tokens are estimated, no real calls).
+- Test rovers are **excluded from the live daily scheduler and the live world**
+  by default — the batch runner is their only token spend. `FREEKNET_TEST_LIVE=1`
+  opts them into the live world + auto-handshakes for realism testing.
+- The simulation accepts an optional per-run token budget that stops it early.
+
+```bash
+FREEKNET_DEV_TOOLS=1 FREEKNET_LLM_MOCK=1 npm start   # free dogfooding of the corpus + sim
+```
 
 If you only want one piece:
 
@@ -153,8 +176,9 @@ npm run deploy
 | `server/db.ts`           | better-sqlite3 schema/migrations + prepared-statement helpers                                  |
 | `server/auth.ts`         | Sessions, cookies, auth rate limiting                                                          |
 | `server/crypto.ts`       | scrypt password hashing + AES-256-GCM api key encryption                                       |
-| `server/api.ts`          | /api/\* REST router (register/login, rover profile, key, logs)                                 |
-| `server/seed.ts`         | Dev rover seeding + in-process PNG squiggle generator                                          |
+| `server/api.ts`          | /api/\* REST router (register/login, rover profile, key, logs, dev tools)                      |
+| `server/simulate.ts`     | Headless batch simulation runner over the synthetic test corpus                                |
+| `src/dev.ts` + `dev.html`| Test-corpus dev page: author/draw test rovers, run a batch simulation                          |
 | `src/main.ts`            | Boot: wires draw phase → game phase                                                            |
 | `src/protocol.ts`        | Shared `ClientMsg` / `ServerMsg` types                                                         |
 | `src/drawing.ts`         | 2D pen capture, quadratic curve smoothing                                                      |
@@ -237,8 +261,9 @@ npm run smoke:player-physics # spawn, walk, jump, walk onto the stage
 npm run smoke:auth           # REST: register/login, rover CRUD, key never echoed, rate limit
 npm run smoke:rover-ui       # panel: signup, draw rover, activate → appears in-world
 npm run smoke:instancing     # capped lobbies, overflow, scoped chat (self-contained server)
-npm run smoke:rovers         # seeded rovers wander in bounds (self-contained server)
+npm run smoke:rovers         # test rovers (seeded via dev api) wander in bounds (self-contained)
 npm run smoke:handshake      # full handshake + wire-privacy sniff (self-contained server)
+npm run smoke:simulate       # batch sim: firewall, transcripts, token budget (self-contained)
 npm run smoke:all            # all of the above
 npm run smoke:visual         # dump 4 screenshots through the chat flow
 ```
@@ -249,8 +274,8 @@ The first six need the dev server up — start it with the test-friendly knobs:
 FREEKNET_LLM_MOCK=1 FREEKNET_AUTH_WINDOW_MS=5000 npm start
 ```
 
-The instancing/rovers/handshake suites spawn their own throwaway server on
-ports 8090-8092 with a temp database, so they run standalone.
+The instancing/rovers/handshake/simulate suites spawn their own throwaway
+server on ports 8090-8093 with a temp database, so they run standalone.
 
 ## Env
 
@@ -265,7 +290,9 @@ ports 8090-8092 with a temp database, so they run standalone.
 | `FREEKNET_AUTH_WINDOW_MS` | `300000`                    | auth rate-limit window (shrink for test runs)                 |
 | `FREEKNET_LLM_MOCK`       | off                         | `1` = canned rover dialogue, no OpenRouter calls              |
 | `FREEKNET_HANDSHAKE_FAST` | off                         | `1` = handshakes every few seconds, quota ignored (dev)       |
-| `FREEKNET_SEED_ROVERS`    | `0`                         | seed N dev accounts with active squiggle rovers at boot       |
+| `FREEKNET_DEV_TOOLS`      | off                         | `1` = mount `/api/dev/*` + the `/dev.html` test-corpus page. **Local dev only.** |
+| `FREEKNET_TEST_API_KEY`   | unset                       | shared OpenRouter key all test rovers use; cap its spend in the OpenRouter dashboard |
+| `FREEKNET_TEST_LIVE`      | off                         | `1` = let synthetic test rovers spawn + auto-handshake in the live world |
 
 ## Known limitations
 

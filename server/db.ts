@@ -66,6 +66,18 @@ const MIGRATIONS: string[] = [
   CREATE INDEX idx_hs_a ON handshakes(rover_a, started_at DESC);
   CREATE INDEX idx_hs_b ON handshakes(rover_b, started_at DESC);
   `,
+  // is_test marks synthetic accounts used for rover-interaction testing. they
+  // are excluded from the live handshake scheduler (see handshake.ts) and are
+  // only driven by the batch simulation runner. the DELETEs purge the obsolete
+  // code-drawn seed rovers (seed_rover_*) — superseded by the dev-page corpus.
+  // handshakes reference rovers(user_id) with no ON DELETE CASCADE, so their
+  // rows must go first or the cascading user delete trips the FK constraint.
+  `
+  ALTER TABLE users ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0;
+  DELETE FROM handshakes WHERE rover_a IN (SELECT id FROM users WHERE username LIKE 'seed_rover_%')
+                            OR rover_b IN (SELECT id FROM users WHERE username LIKE 'seed_rover_%');
+  DELETE FROM users WHERE username LIKE 'seed_rover_%';
+  `,
 ];
 
 {
@@ -88,6 +100,7 @@ export interface UserRow {
   api_key_enc: Buffer | null;
   key_error: string | null;
   created_at: number;
+  is_test: number;
 }
 
 export interface SessionRow {
@@ -126,10 +139,11 @@ export interface HandshakeRow {
 const stmtGetUserByName = db.prepare('SELECT * FROM users WHERE username = ?');
 const stmtGetUserById = db.prepare('SELECT * FROM users WHERE id = ?');
 const stmtCreateUser = db.prepare(
-  'INSERT INTO users (username, pass_salt, pass_hash, created_at) VALUES (?, ?, ?, ?)',
+  'INSERT INTO users (username, pass_salt, pass_hash, created_at, is_test) VALUES (?, ?, ?, ?, ?)',
 );
 const stmtSetApiKey = db.prepare('UPDATE users SET api_key_enc = ?, key_error = NULL WHERE id = ?');
 const stmtSetKeyError = db.prepare('UPDATE users SET key_error = ? WHERE id = ?');
+const stmtDeleteUser = db.prepare('DELETE FROM users WHERE id = ?');
 
 export function getUserByName(username: string): UserRow | undefined {
   return stmtGetUserByName.get(username) as UserRow | undefined;
@@ -140,8 +154,19 @@ export function getUserById(id: number): UserRow | undefined {
 }
 
 export function createUser(username: string, salt: Buffer, hash: Buffer): number {
-  const info = stmtCreateUser.run(username, salt, hash, Date.now());
+  const info = stmtCreateUser.run(username, salt, hash, Date.now(), 0);
   return Number(info.lastInsertRowid);
+}
+
+/** create a synthetic test account (is_test=1). used by the dev tools only. */
+export function createTestUser(username: string, salt: Buffer, hash: Buffer): number {
+  const info = stmtCreateUser.run(username, salt, hash, Date.now(), 1);
+  return Number(info.lastInsertRowid);
+}
+
+/** delete a user; sessions and the rover row cascade via FK. */
+export function deleteUser(id: number): void {
+  stmtDeleteUser.run(id);
 }
 
 export function setApiKey(userId: number, enc: Buffer | null): void {
@@ -195,8 +220,19 @@ export function pruneExpiredSessions(): void {
 // ---- rovers -----------------------------------------------------------------
 
 const stmtGetRover = db.prepare('SELECT * FROM rovers WHERE user_id = ?');
-const stmtListActiveRovers = db.prepare(
+// real users only — test rovers stay out of the live world by default.
+const stmtListLiveRovers = db.prepare(
+  `SELECT r.* FROM rovers r JOIN users u ON u.id = r.user_id
+   WHERE r.active = 1 AND r.drawing IS NOT NULL AND u.is_test = 0`,
+);
+// everyone (incl. test rovers) — used only when FREEKNET_TEST_LIVE=1.
+const stmtListAllActiveRovers = db.prepare(
   'SELECT * FROM rovers WHERE active = 1 AND drawing IS NOT NULL',
+);
+const stmtListTestUsers = db.prepare('SELECT * FROM users WHERE is_test = 1 ORDER BY id');
+const stmtListActiveTestRovers = db.prepare(
+  `SELECT r.* FROM rovers r JOIN users u ON u.id = r.user_id
+   WHERE r.active = 1 AND r.drawing IS NOT NULL AND u.is_test = 1`,
 );
 const stmtUpsertRover = db.prepare(`
   INSERT INTO rovers (user_id, drawing, personality, intent_short, intent_long, active, model, updated_at)
@@ -219,7 +255,21 @@ export function getRover(userId: number): RoverRow | undefined {
 }
 
 export function listActiveRovers(): RoverRow[] {
-  return stmtListActiveRovers.all() as RoverRow[];
+  // FREEKNET_TEST_LIVE=1 lets synthetic rovers spawn + wander + auto-handshake
+  // alongside real ones (realism testing); otherwise they exist only in the db
+  // for the batch simulation runner.
+  const stmt = process.env.FREEKNET_TEST_LIVE === '1' ? stmtListAllActiveRovers : stmtListLiveRovers;
+  return stmt.all() as RoverRow[];
+}
+
+/** all synthetic test accounts (is_test=1), for the dev tools listing. */
+export function listTestUsers(): UserRow[] {
+  return stmtListTestUsers.all() as UserRow[];
+}
+
+/** active synthetic rovers with a drawing — the batch runner's candidate pool. */
+export function listActiveTestRovers(): RoverRow[] {
+  return stmtListActiveTestRovers.all() as RoverRow[];
 }
 
 export function upsertRover(rover: Omit<RoverRow, 'last_handshake_day'>): void {

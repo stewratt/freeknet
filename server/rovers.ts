@@ -79,7 +79,11 @@ export class RoverManager {
   onRoverChanged(userId: number): void {
     const row = dbq.getRover(userId);
     const live = this.rovers.get(userId);
-    const shouldRun = !!row && !!row.active && !!row.drawing;
+    // synthetic test rovers stay out of the live world unless explicitly opted
+    // in — keeps the cost firewall and the world identical in production.
+    const user = dbq.getUserById(userId);
+    const allowed = !user?.is_test || process.env.FREEKNET_TEST_LIVE === '1';
+    const shouldRun = !!row && !!row.active && !!row.drawing && allowed;
     if (!shouldRun) {
       if (live) this.despawn(userId);
       return;

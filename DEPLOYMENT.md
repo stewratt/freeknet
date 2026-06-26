@@ -43,6 +43,12 @@ chown freeknet:freeknet /opt/freeknet/freeknet.env
 systemctl restart freeknet
 ```
 
+> **Never set `FREEKNET_DEV_TOOLS=1` in production.** It mounts the unauthenticated
+> `/api/dev/*` routes (and `/dev.html`), which let anyone create test accounts and
+> trigger `POST /api/dev/simulate` — spending the shared `FREEKNET_TEST_API_KEY`.
+> The dev tools, the shared test key, and `FREEKNET_TEST_LIVE` are all local-dev
+> knobs and should be absent from `freeknet.env`.
+
 ## database
 
 SQLite (WAL) at `/opt/freeknet/data/freeknet.db`, created on first boot.

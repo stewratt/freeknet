@@ -12,3 +12,7 @@ server.js
 
 # local smoke test artifacts
 shot-*.png
+
+# local env (holds the shared OpenRouter test key — never commit)
+freeknet.env
+*.env

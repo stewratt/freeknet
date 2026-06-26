@@ -20,11 +20,12 @@
     "smoke:rovers": "tsx smoketest/rovers.ts",
     "smoke:rover-ui": "tsx smoketest/rover-ui.ts",
     "smoke:handshake": "tsx smoketest/handshake.ts",
+    "smoke:simulate": "tsx smoketest/simulate.ts",
     "smoke:chat": "tsx smoketest/chat.ts",
     "smoke:visual": "tsx smoketest/visual.ts",
     "smoke:presence": "tsx smoketest/presence.ts",
     "smoke:player-physics": "tsx smoketest/player-physics.ts",
-    "smoke:all": "npm run smoke && npm run smoke:chat && npm run smoke:presence && npm run smoke:player-physics && npm run smoke:auth && npm run smoke:rover-ui && npm run smoke:instancing && npm run smoke:rovers && npm run smoke:handshake"
+    "smoke:all": "npm run smoke && npm run smoke:chat && npm run smoke:presence && npm run smoke:player-physics && npm run smoke:auth && npm run smoke:rover-ui && npm run smoke:instancing && npm run smoke:rovers && npm run smoke:handshake && npm run smoke:simulate"
   },
   "dependencies": {
     "@perplexdotgg/bounce": "^1.8.1",

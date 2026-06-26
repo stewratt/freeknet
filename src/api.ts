@@ -68,6 +68,52 @@ export interface RoverUpdate {
   model?: string;
 }
 
+// ---- dev tools (only meaningful when the server has FREEKNET_DEV_TOOLS=1) ----
+
+export interface Tester {
+  id: number;
+  username: string;
+  rover: RoverProfile | null;
+}
+
+export interface DevTesters {
+  testers: Tester[];
+  testKeyConfigured: boolean;
+  mock: boolean;
+  allowedModels: string[];
+}
+
+export interface SimConversation {
+  handshakeId: number | null;
+  a: string;
+  b: string;
+  status: string;
+  turns: number;
+  totalTokens: number;
+  transcript: TranscriptLine[];
+  error?: string;
+}
+
+export interface SimReport {
+  runId: string;
+  candidates: number;
+  pairsRun: number;
+  turnsTotal: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  estCostUsd: number;
+  perModel: Record<string, { tokens: number; estCostUsd: number }>;
+  conversations: SimConversation[];
+  stoppedEarly: boolean;
+}
+
+export interface SimulateOpts {
+  pairs?: number;
+  tokenBudget?: number;
+  concurrency?: number;
+}
+
 export const api = {
   register: (username: string, password: string) =>
     req<Me>('POST', '/api/register', { username, password }),
@@ -83,4 +129,10 @@ export const api = {
       'GET',
       `/api/rover/handshakes?limit=20${before ? `&before=${before}` : ''}`,
     ),
+  devTesters: () => req<DevTesters>('GET', '/api/dev/testers'),
+  devCreateTester: () => req<Tester>('POST', '/api/dev/testers'),
+  devUpdateTester: (id: number, update: RoverUpdate) =>
+    req<Tester>('PUT', `/api/dev/testers/${id}`, update),
+  devDeleteTester: (id: number) => req<{ ok: boolean }>('DELETE', `/api/dev/testers/${id}`),
+  devSimulate: (opts: SimulateOpts) => req<SimReport>('POST', '/api/dev/simulate', opts),
 };

@@ -19,8 +19,35 @@ export interface ChatOnceOpts {
   maxTokens?: number;
 }
 
+export interface Usage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+export interface ChatResult {
+  text: string;
+  usage: Usage;
+}
+
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const TIMEOUT_MS = 20000;
+
+// rough USD-per-1M-token list prices for the whitelisted models. ESTIMATE only:
+// providers change pricing, and OpenRouter adds a small fee. used to give the
+// simulation runner a ballpark $/run — trust the OpenRouter dashboard for truth.
+const PRICING: Record<string, { in: number; out: number }> = {
+  'openai/gpt-4.1-mini': { in: 0.4, out: 1.6 },
+  'openai/gpt-4.1-nano': { in: 0.1, out: 0.4 },
+  'anthropic/claude-haiku-4.5': { in: 1.0, out: 5.0 },
+  'google/gemini-2.0-flash-001': { in: 0.1, out: 0.4 },
+};
+
+export function estimateCostUsd(model: string, promptTokens: number, completionTokens: number): number {
+  const p = PRICING[model];
+  if (!p) return 0;
+  return (promptTokens * p.in + completionTokens * p.out) / 1_000_000;
+}
 
 const MOCK_LINES = [
   'mockline: oh! another rover — hello, hello.',
@@ -31,7 +58,12 @@ const MOCK_LINES = [
   'mockline: until tomorrow, friend. keep wandering.',
 ];
 
-async function callOnce(opts: ChatOnceOpts): Promise<string> {
+// approximate token count for mock mode (no provider to ask). ~4 chars/token.
+function approxTokens(text: string): number {
+  return Math.max(1, Math.ceil(text.length / 4));
+}
+
+async function callOnce(opts: ChatOnceOpts): Promise<ChatResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -55,20 +87,31 @@ async function callOnce(opts: ChatOnceOpts): Promise<string> {
     if (!res.ok) throw new Error(`openrouter ${res.status}`);
     const data = (await res.json()) as {
       choices?: Array<{ message?: { content?: string } }>;
+      usage?: Partial<Usage>;
     };
     const text = data.choices?.[0]?.message?.content?.trim();
     if (!text) throw new Error('empty completion');
-    return text;
+    const u = data.usage ?? {};
+    const usage: Usage = {
+      prompt_tokens: u.prompt_tokens ?? 0,
+      completion_tokens: u.completion_tokens ?? 0,
+      total_tokens: u.total_tokens ?? (u.prompt_tokens ?? 0) + (u.completion_tokens ?? 0),
+    };
+    return { text, usage };
   } finally {
     clearTimeout(timer);
   }
 }
 
-export async function chatOnce(opts: ChatOnceOpts): Promise<string> {
+export async function chatOnce(opts: ChatOnceOpts): Promise<ChatResult> {
   if (process.env.FREEKNET_LLM_MOCK === '1') {
     await new Promise((r) => setTimeout(r, 300));
     if (opts.apiKey === 'sk-or-mock-invalid') throw new KeyInvalidError('mock invalid key');
-    return MOCK_LINES[Math.min(opts.messages.length, MOCK_LINES.length - 1)];
+    const text = MOCK_LINES[Math.min(opts.messages.length, MOCK_LINES.length - 1)];
+    const prompt_tokens =
+      approxTokens(opts.system) + opts.messages.reduce((n, m) => n + approxTokens(m.content), 0);
+    const completion_tokens = approxTokens(text);
+    return { text, usage: { prompt_tokens, completion_tokens, total_tokens: prompt_tokens + completion_tokens } };
   }
   try {
     return await callOnce(opts);

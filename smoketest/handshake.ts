@@ -1,5 +1,6 @@
-// handshake smoke test. spawns a server with 2 seeded rovers, mock llm, and
-// fast scheduling, then watches the wire and the db:
+// handshake smoke test. spawns a server with dev tools + test-live, seeds 2
+// rovers via the dev api, runs mock llm + fast scheduling, then watches the
+// wire and the db:
 //   - a `roverchat on` arrives naming both rovers
 //   - the rovers converge to ~1.5u apart and freeze facing each other
 //   - NO ws frame ever contains conversation text (privacy on the wire)
@@ -15,6 +16,7 @@ import Database from 'better-sqlite3';
 import { makeRunner, sleep } from './helpers';
 
 const PORT = 8092;
+const BASE = `http://localhost:${PORT}`;
 const DB_PATH = join(mkdtempSync(join(tmpdir(), 'freeknet-smoke-')), 'test.db');
 
 const TINY_PNG =
@@ -28,10 +30,23 @@ function startServer(): ChildProcess {
       FREEKNET_DB: DB_PATH,
       FREEKNET_LLM_MOCK: '1',
       FREEKNET_HANDSHAKE_FAST: '1',
-      FREEKNET_SEED_ROVERS: '2',
+      FREEKNET_DEV_TOOLS: '1',
+      FREEKNET_TEST_LIVE: '1',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
+}
+
+async function seedTestRovers(n: number): Promise<void> {
+  for (let i = 0; i < n; i++) {
+    const created = await fetch(`${BASE}/api/dev/testers`, { method: 'POST' });
+    const { id } = (await created.json()) as { id: number };
+    await fetch(`${BASE}/api/dev/testers/${id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ drawing: TINY_PNG, personality: `test subject ${i}`, active: true }),
+    });
+  }
 }
 
 async function waitForServer(): Promise<void> {
@@ -65,6 +80,7 @@ async function main(): Promise<void> {
 
   try {
     await waitForServer();
+    await seedTestRovers(2);
 
     const frames: string[] = [];
     const positions = new Map<string, { x: number; z: number; at: number }>();

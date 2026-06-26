@@ -5,8 +5,10 @@
 // untouched — guests never hit these endpoints.
 
 import type { IncomingMessage, ServerResponse } from 'http';
+import { randomBytes } from 'crypto';
 import * as dbq from './db';
 import { encryptApiKey, hashPassword, verifyPassword } from './crypto';
+import { runSimulation } from './simulate';
 import {
   clearSessionCookie,
   endSession,
@@ -151,31 +153,25 @@ async function handleLogin(req: IncomingMessage, res: ServerResponse): Promise<v
   sendJson(res, 200, meToJson(user));
 }
 
-async function handlePutRover(
-  req: IncomingMessage,
-  res: ServerResponse,
-  user: UserRow,
-): Promise<void> {
-  const body = await readBody(req);
-  if (!body) return sendJson(res, 400, { error: 'bad request body' });
-
-  const existing = dbq.getRover(user.id);
+// validate + persist a rover profile patch. shared by the user-facing
+// PUT /api/rover and the dev-tools tester editor. returns an error string on
+// validation failure, or null on success.
+function applyRoverUpdate(userId: number, body: Record<string, unknown>): string | null {
+  const existing = dbq.getRover(userId);
   let drawing = existing?.drawing ?? null;
   if (typeof body.drawing === 'string') {
     if (!body.drawing.startsWith('data:image/png;base64,') || body.drawing.length > DRAWING_LIMIT) {
-      return sendJson(res, 400, { error: 'drawing must be a png data url under 512KB' });
+      return 'drawing must be a png data url under 512KB';
     }
     drawing = body.drawing;
   }
   let model = existing?.model ?? DEFAULT_MODEL;
   if (typeof body.model === 'string') {
-    if (!ALLOWED_MODELS.has(body.model)) return sendJson(res, 400, { error: 'unknown model' });
+    if (!ALLOWED_MODELS.has(body.model)) return 'unknown model';
     model = body.model;
   }
   const active = typeof body.active === 'boolean' ? body.active : !!existing?.active;
-  if (active && !drawing) {
-    return sendJson(res, 400, { error: 'draw your rover before activating it' });
-  }
+  if (active && !drawing) return 'draw your rover before activating it';
 
   // field caps double as the token-spend control: these strings go straight
   // into the handshake system prompt.
@@ -183,7 +179,7 @@ async function handlePutRover(
     typeof v === 'string' ? v.slice(0, max) : fallback;
 
   dbq.upsertRover({
-    user_id: user.id,
+    user_id: userId,
     drawing,
     personality: str(body.personality, existing?.personality ?? '', PERSONALITY_MAX),
     intent_short: str(body.intentShort, existing?.intent_short ?? '', INTENT_MAX),
@@ -192,7 +188,19 @@ async function handlePutRover(
     model,
     updated_at: Date.now(),
   });
-  roverHooks.onRoverChanged(user.id);
+  roverHooks.onRoverChanged(userId);
+  return null;
+}
+
+async function handlePutRover(
+  req: IncomingMessage,
+  res: ServerResponse,
+  user: UserRow,
+): Promise<void> {
+  const body = await readBody(req);
+  if (!body) return sendJson(res, 400, { error: 'bad request body' });
+  const err = applyRoverUpdate(user.id, body);
+  if (err) return sendJson(res, 400, { error: err });
   sendJson(res, 200, meToJson(user));
 }
 
@@ -229,6 +237,90 @@ function handleListHandshakes(req: IncomingMessage, res: ServerResponse, user: U
   });
 }
 
+// ---- dev tools --------------------------------------------------------------------
+//
+// the test-corpus authoring surface, mounted only when FREEKNET_DEV_TOOLS=1.
+// it has no auth of its own — the env flag is the gate, so DO NOT enable it on
+// a public deployment (POST /api/dev/simulate spends the shared test key).
+
+function testerToJson(user: UserRow) {
+  return {
+    id: user.id,
+    username: user.username,
+    rover: roverToJson(dbq.getRover(user.id)),
+  };
+}
+
+function devListTesters(res: ServerResponse): void {
+  sendJson(res, 200, {
+    testers: dbq.listTestUsers().map(testerToJson),
+    testKeyConfigured:
+      !!process.env.FREEKNET_TEST_API_KEY || process.env.FREEKNET_LLM_MOCK === '1',
+    mock: process.env.FREEKNET_LLM_MOCK === '1',
+    allowedModels: [...ALLOWED_MODELS],
+  });
+}
+
+function devCreateTester(res: ServerResponse): void {
+  let username = '';
+  for (let i = 0; i < 6 && !username; i++) {
+    const candidate = `test_${randomBytes(4).toString('hex')}`;
+    if (!dbq.getUserByName(candidate)) username = candidate;
+  }
+  if (!username) return sendJson(res, 500, { error: 'could not allocate a test username' });
+  const { salt, hash } = hashPassword(randomBytes(24).toString('hex'));
+  const id = dbq.createTestUser(username, salt, hash);
+  sendJson(res, 200, testerToJson(dbq.getUserById(id)!));
+}
+
+async function devUpdateTester(
+  req: IncomingMessage,
+  res: ServerResponse,
+  user: UserRow,
+): Promise<void> {
+  const body = await readBody(req);
+  if (!body) return sendJson(res, 400, { error: 'bad request body' });
+  const err = applyRoverUpdate(user.id, body);
+  if (err) return sendJson(res, 400, { error: err });
+  sendJson(res, 200, testerToJson(dbq.getUserById(user.id)!));
+}
+
+async function devSimulate(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const body = (await readBody(req)) ?? {};
+  const num = (v: unknown) => (typeof v === 'number' && v > 0 ? Math.floor(v) : undefined);
+  const report = await runSimulation({
+    pairs: num(body.pairs),
+    tokenBudget: num(body.tokenBudget),
+    concurrency: num(body.concurrency),
+  });
+  sendJson(res, 200, report);
+}
+
+async function handleDevApi(
+  req: IncomingMessage,
+  res: ServerResponse,
+  method: string,
+  path: string,
+): Promise<void> {
+  if (path === '/api/dev/testers') {
+    if (method === 'GET') return devListTesters(res);
+    if (method === 'POST') return devCreateTester(res);
+  }
+  const m = path.match(/^\/api\/dev\/testers\/(\d+)$/);
+  if (m) {
+    const user = dbq.getUserById(Number(m[1]));
+    if (!user || !user.is_test) return sendJson(res, 404, { error: 'no such test subject' });
+    if (method === 'PUT') return devUpdateTester(req, res, user);
+    if (method === 'DELETE') {
+      dbq.deleteUser(user.id);
+      roverHooks.onRoverChanged(user.id); // despawn it from the live world if present
+      return sendJson(res, 200, { ok: true });
+    }
+  }
+  if (path === '/api/dev/simulate' && method === 'POST') return devSimulate(req, res);
+  sendJson(res, 404, { error: 'not found' });
+}
+
 // ---- router -----------------------------------------------------------------------
 
 /** handle /api/* requests; returns false if the path is not an api route. */
@@ -241,6 +333,12 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
     if (route === 'POST /api/register') return (await handleRegister(req, res), true);
     if (route === 'POST /api/login') return (await handleLogin(req, res), true);
     if (route === 'GET /api/stats') return (sendJson(res, 200, statsProvider()), true);
+
+    // dev tools: gated entirely by the env flag, no session required (local dev)
+    if (path.startsWith('/api/dev/')) {
+      if (process.env.FREEKNET_DEV_TOOLS !== '1') return (sendJson(res, 404, { error: 'not found' }), true);
+      return (await handleDevApi(req, res, req.method ?? '', path), true);
+    }
 
     // everything below requires a session
     const user = getSessionUser(req);

@@ -170,7 +170,12 @@ export class RemotePlayer {
   avatar: AvatarMesh | null = null;
   readonly position: THREE.Vector3;
   private readonly buffer: InterpSample[];
-  private readonly renderDelay = 0.12;
+  // render ~one update interval in the past so the interp buffer always has two
+  // samples bracketing the target. rovers broadcast at 200ms (server/rovers.ts
+  // UPDATE_INTERVAL_MS); a delay below that lets the target outrun the newest
+  // sample, pinning alpha=1 and freezing motion until the next packet — the
+  // "stepping" stutter. 0.22 keeps a small margin above 200ms.
+  private readonly renderDelay = 0.22;
   lastSpeed = 0;
   dance: boolean;
   bowTime = 0;

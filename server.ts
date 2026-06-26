@@ -15,7 +15,6 @@ import { abortRunningHandshakes, pruneExpiredSessions } from './server/db';
 import { InstanceManager, type Occupant } from './server/instances';
 import { RoverManager } from './server/rovers';
 import { HandshakeScheduler } from './server/handshake';
-import { seedRovers } from './server/seed';
 
 const PORT = Number(process.env.PORT ?? process.env.FREEKNET_PORT ?? 8080);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -298,7 +297,6 @@ process.on('SIGTERM', shutdown);
 // written on completion so nothing leaks.
 abortRunningHandshakes();
 pruneExpiredSessions();
-seedRovers();
 roverManager.start();
 handshakeScheduler.start();
 

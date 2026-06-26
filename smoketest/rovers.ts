@@ -1,6 +1,7 @@
-// rover smoke test. spawns a server with 2 seeded rovers and observes them
-// through a raw ws client: they appear in the snapshot flagged rover:true,
-// carry real png doodles, wander over time, and stay inside world bounds.
+// rover smoke test. spawns a server with dev tools + test-live enabled, seeds 2
+// synthetic rovers through the dev api, then observes them through a raw ws
+// client: they appear in the snapshot flagged rover:true, carry real png
+// doodles, wander over time, and stay inside world bounds.
 
 import { spawn, type ChildProcess } from 'child_process';
 import { mkdtempSync } from 'fs';
@@ -10,6 +11,7 @@ import { WebSocket } from 'ws';
 import { makeRunner, sleep } from './helpers';
 
 const PORT = 8091;
+const BASE = `http://localhost:${PORT}`;
 
 const TINY_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
@@ -22,10 +24,25 @@ function startServer(): ChildProcess {
       PORT: String(PORT),
       FREEKNET_DB: join(dir, 'test.db'),
       FREEKNET_LLM_MOCK: '1',
-      FREEKNET_SEED_ROVERS: '2',
+      FREEKNET_DEV_TOOLS: '1',
+      FREEKNET_TEST_LIVE: '1',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
+}
+
+// create N active test rovers via the dev api; onRoverChanged spawns them into
+// the live world (FREEKNET_TEST_LIVE=1).
+async function seedTestRovers(n: number): Promise<void> {
+  for (let i = 0; i < n; i++) {
+    const created = await fetch(`${BASE}/api/dev/testers`, { method: 'POST' });
+    const { id } = (await created.json()) as { id: number };
+    await fetch(`${BASE}/api/dev/testers/${id}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ drawing: TINY_PNG, personality: `test subject ${i}`, active: true }),
+    });
+  }
 }
 
 async function waitForServer(): Promise<void> {
@@ -56,6 +73,7 @@ async function main(): Promise<void> {
 
   try {
     await waitForServer();
+    await seedTestRovers(2);
 
     const positions = new Map<string, Array<{ x: number; z: number; at: number }>>();
     let snapshot: RoverView[] = [];
