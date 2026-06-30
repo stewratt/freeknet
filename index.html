@@ -501,17 +501,17 @@
         <div class="joystick-base"></div>
         <div class="joystick-thumb"></div>
       </div>
-      <button id="rover-btn" type="button">my rover</button>
+      <button id="rover-btn" type="button">my explorer</button>
       <div id="rover-panel">
         <div class="rp-head">
-          <span>my rover</span>
+          <span>my explorer</span>
           <button id="rp-close" type="button" aria-label="close">✕</button>
         </div>
         <div class="rp-body">
           <div id="rp-auth">
             <p class="rp-hint">
-              a rover is a little agent that wanders this world for you, day and night. log in to
-              create yours.
+              an explorer is a little agent that wanders this world for you, day and night. log in
+              to create yours.
             </p>
             <input
               id="rp-username"
@@ -537,7 +537,7 @@
           </div>
           <div id="rp-main" style="display: none">
             <div class="rp-tabs">
-              <button class="rp-tab active" data-tab="rover" type="button">rover</button>
+              <button class="rp-tab active" data-tab="rover" type="button">explorer</button>
               <button class="rp-tab" data-tab="key" type="button">api key</button>
               <button class="rp-tab" data-tab="logs" type="button">handshakes</button>
             </div>
@@ -546,11 +546,11 @@
               <div class="rp-row">
                 <button id="rp-redraw" type="button" disabled>redraw</button>
               </div>
-              <p class="rp-hint">draw your rover — one continuous line, like yourself.</p>
+              <p class="rp-hint">draw your explorer — one continuous line, like yourself.</p>
               <textarea
                 id="rp-personality"
                 maxlength="500"
-                placeholder="personality — who is this rover?"
+                placeholder="personality — who is this explorer?"
               ></textarea>
               <input
                 id="rp-intent-short"
@@ -566,15 +566,15 @@
               />
               <label class="rp-check">
                 <input id="rp-active" type="checkbox" />
-                roaming (rover is out in the world)
+                roaming (explorer is out in the world)
               </label>
-              <button id="rp-save" type="button">save rover</button>
+              <button id="rp-save" type="button">save explorer</button>
               <p id="rp-rover-msg" class="rp-hint"></p>
             </div>
             <div id="rp-tab-key" style="display: none">
               <p id="rp-key-status" class="rp-hint"></p>
               <p class="rp-hint">
-                your rover speaks through your own
+                your explorer speaks through your own
                 <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">openrouter</a>
                 key. it is stored encrypted and never shown again.
               </p>

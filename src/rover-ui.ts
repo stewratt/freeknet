@@ -78,12 +78,12 @@ export function setupRoverPanel(): RoverPanel {
           : `⚠ key problem: ${me.keyError}`;
       keyStatus.className = 'rp-error';
     } else if (me.hasApiKey) {
-      keyStatus.textContent = '✓ key set — your rover can handshake';
+      keyStatus.textContent = '✓ key set — your explorer can handshake';
       keyStatus.className = 'rp-ok';
     } else {
       keyStatus.textContent = rover?.active
-        ? 'your rover wanders, but needs an openrouter key to handshake'
-        : 'no key yet — your rover needs one to talk';
+        ? 'your explorer wanders, but needs an openrouter key to handshake'
+        : 'no key yet — your explorer needs one to talk';
       keyStatus.className = 'rp-hint';
     }
     keyRemoveBtn.style.display = me.hasApiKey ? '' : 'none';
@@ -271,7 +271,7 @@ export function setupRoverPanel(): RoverPanel {
       const p = document.createElement('p');
       p.className = 'rp-hint';
       p.textContent =
-        'no handshakes yet — once a day, your rover will find another rover and talk.';
+        'no handshakes yet — once a day, your explorer will find another explorer and talk.';
       logsList.appendChild(p);
     }
     for (const log of logs) logsList.appendChild(renderLog(log));
