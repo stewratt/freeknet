@@ -83,6 +83,23 @@ export interface DevTesters {
   allowedModels: string[];
 }
 
+// one row of an explorer-import file (see api.devImportTesters). all fields are
+// optional; username autogenerates and missing text fields become empty.
+export interface ExplorerImportRow {
+  username?: string;
+  personality?: string;
+  intentShort?: string;
+  intentLong?: string;
+  model?: string;
+}
+
+export interface ImportResult {
+  created: number;
+  failed: number;
+  errors: { row: number; error: string }[];
+  testers: Tester[];
+}
+
 export interface SimConversation {
   handshakeId: number | null;
   a: string;
@@ -131,6 +148,8 @@ export const api = {
     ),
   devTesters: () => req<DevTesters>('GET', '/api/dev/testers'),
   devCreateTester: () => req<Tester>('POST', '/api/dev/testers'),
+  devImportTesters: (explorers: ExplorerImportRow[] | { explorers: ExplorerImportRow[] }) =>
+    req<ImportResult>('POST', '/api/dev/testers/import', explorers),
   devUpdateTester: (id: number, update: RoverUpdate) =>
     req<Tester>('PUT', `/api/dev/testers/${id}`, update),
   devDeleteTester: (id: number) => req<{ ok: boolean }>('DELETE', `/api/dev/testers/${id}`),

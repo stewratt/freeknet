@@ -273,6 +273,90 @@ function devCreateTester(res: ServerResponse): void {
   sendJson(res, 200, testerToJson(dbq.getUserById(id)!));
 }
 
+// POST /api/dev/testers/import — batch-author explorers from a JSON file.
+// Accepts a bare array, or { "explorers": [ ... ] }. Each entry creates a fresh
+// test account + rover profile in one shot. Drawings are NOT imported (explorers
+// are still drawn by hand on the page), so imported explorers start inactive
+// until you draw + activate them. Returns a per-row summary so a bad entry is
+// visible instead of silently dropped.
+const IMPORT_MAX = 200;
+
+async function devImportTesters(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const body = await readBody(req);
+  const raw: unknown = Array.isArray(body)
+    ? body
+    : Array.isArray((body as Record<string, unknown> | null)?.explorers)
+      ? (body as Record<string, unknown>).explorers
+      : null;
+  if (!raw) {
+    return sendJson(res, 400, {
+      error: 'expected a JSON array of explorers, or { "explorers": [ ... ] }',
+    });
+  }
+  const list = raw as unknown[];
+  if (list.length === 0) return sendJson(res, 400, { error: 'no explorers in the file' });
+  if (list.length > IMPORT_MAX) {
+    return sendJson(res, 400, { error: `too many explorers (max ${IMPORT_MAX} per import)` });
+  }
+
+  const created: ReturnType<typeof testerToJson>[] = [];
+  const errors: { row: number; error: string }[] = [];
+
+  for (let i = 0; i < list.length; i++) {
+    const row = i + 1;
+    const entry = list[i];
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      errors.push({ row, error: 'not a JSON object' });
+      continue;
+    }
+    const e = entry as Record<string, unknown>;
+
+    // username: optional. validate + check uniqueness if given, else autogenerate.
+    let username = '';
+    if (e.username !== undefined && e.username !== null && e.username !== '') {
+      const requested = String(e.username).toLowerCase();
+      if (!USERNAME_RE.test(requested)) {
+        errors.push({ row, error: `username "${requested}" must be 3-20 chars, a-z 0-9 _` });
+        continue;
+      }
+      if (dbq.getUserByName(requested)) {
+        errors.push({ row, error: `username "${requested}" is already taken` });
+        continue;
+      }
+      username = requested;
+    } else {
+      for (let t = 0; t < 6 && !username; t++) {
+        const candidate = `test_${randomBytes(4).toString('hex')}`;
+        if (!dbq.getUserByName(candidate)) username = candidate;
+      }
+      if (!username) {
+        errors.push({ row, error: 'could not allocate a username' });
+        continue;
+      }
+    }
+
+    // friendly column aliases so a spreadsheet export can use either name
+    const update: Record<string, unknown> = {
+      personality: e.personality,
+      intentShort: e.intentShort ?? e.wantsNow ?? e.wants,
+      intentLong: e.intentLong ?? e.dream ?? e.longTermDream,
+      model: e.model,
+    };
+
+    const { salt, hash } = hashPassword(randomBytes(24).toString('hex'));
+    const id = dbq.createTestUser(username, salt, hash);
+    const err = applyRoverUpdate(id, update);
+    if (err) {
+      dbq.deleteUser(id); // roll the row back so a bad entry leaves nothing behind
+      errors.push({ row, error: err });
+      continue;
+    }
+    created.push(testerToJson(dbq.getUserById(id)!));
+  }
+
+  sendJson(res, 200, { created: created.length, failed: errors.length, errors, testers: created });
+}
+
 async function devUpdateTester(
   req: IncomingMessage,
   res: ServerResponse,
@@ -306,6 +390,7 @@ async function handleDevApi(
     if (method === 'GET') return devListTesters(res);
     if (method === 'POST') return devCreateTester(res);
   }
+  if (path === '/api/dev/testers/import' && method === 'POST') return devImportTesters(req, res);
   const m = path.match(/^\/api\/dev\/testers\/(\d+)$/);
   if (m) {
     const user = dbq.getUserById(Number(m[1]));

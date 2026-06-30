@@ -3,10 +3,21 @@
 // transcripts + token/cost report. talks only to /api/dev/*, which the server
 // mounts when FREEKNET_DEV_TOOLS=1.
 
-import { api, type DevTesters, type RoverUpdate, type SimReport, type Tester } from './api';
+import {
+  api,
+  type DevTesters,
+  type ExplorerImportRow,
+  type RoverUpdate,
+  type SimReport,
+  type Tester,
+} from './api';
 import { createDoodlePad } from './drawing';
 
 const root = document.getElementById('root') as HTMLDivElement;
+
+// a one-shot banner shown at the top of the next render (e.g. import results),
+// then cleared so it doesn't stick around across refreshes.
+let flash: { text: string; kind: 'ok' | 'warn' | 'err' } | null = null;
 
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -39,8 +50,21 @@ async function init(): Promise<void> {
 
 function render(): void {
   if (!state) return;
+
+  // hidden file picker that drives the batch import
+  const fileInput = el('input', { type: 'file', accept: '.json,application/json' });
+  fileInput.style.display = 'none';
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files?.[0];
+    fileInput.value = ''; // allow re-importing the same filename
+    if (file) await importExplorers(file);
+  });
+
   const bar = el('div', { className: 'bar' }, [
     el('button', { className: 'primary', textContent: '+ add test subject', onclick: addTester }),
+    el('button', { textContent: '↑ import JSON', onclick: () => fileInput.click() }),
+    el('button', { textContent: '↓ template', onclick: downloadTemplate }),
+    fileInput,
     el('span', {
       className: `pill ${state.mock ? 'warn' : 'ok'}`,
       textContent: state.mock ? 'mock mode (no real tokens)' : 'live LLM calls',
@@ -54,6 +78,11 @@ function render(): void {
     el('span', { className: 'pill', textContent: `${state.testers.length} subjects` }),
   ]);
 
+  const banner = flash
+    ? el('p', { className: `msg ${flash.kind === 'ok' ? 'ok' : 'err'}`, textContent: flash.text })
+    : null;
+  flash = null; // one-shot
+
   const grid = el('div', { className: 'grid' });
   if (state.testers.length === 0) {
     grid.append(
@@ -62,7 +91,61 @@ function render(): void {
   }
   for (const t of state.testers) grid.append(testerCard(t));
 
-  root.replaceChildren(bar, grid, simSection());
+  root.replaceChildren(...(banner ? [bar, banner] : [bar]), grid, simSection());
+}
+
+// download a ready-to-fill JSON file in the exact shape the import accepts.
+function downloadTemplate(): void {
+  const sample: ExplorerImportRow[] = [
+    {
+      username: 'ada',
+      personality: 'a curious cartographer who narrates everything she sees',
+      intentShort: 'find the tallest hill to get a view of the valley',
+      intentLong: 'chart every corner of this world',
+      model: state?.allowedModels[0],
+    },
+    {
+      personality: 'a shy collector of shiny pebbles, speaks in short sentences',
+      intentShort: 'find one perfect round stone',
+      intentLong: 'build a little cairn that others will notice',
+    },
+  ];
+  const blob = new Blob([JSON.stringify(sample, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = el('a', { href: url, download: 'explorers-template.json' });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// read a JSON file, batch-create the explorers, then refresh with a summary.
+async function importExplorers(file: File): Promise<void> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await file.text());
+  } catch (e) {
+    flash = { text: `Could not parse ${file.name}: ${(e as Error).message}`, kind: 'err' };
+    render();
+    return;
+  }
+  const payload = parsed as ExplorerImportRow[] | { explorers: ExplorerImportRow[] };
+  const res = await api.devImportTesters(payload);
+  if (!res.ok || !res.data) {
+    flash = { text: res.error ?? 'import failed', kind: 'err' };
+    render();
+    return;
+  }
+  const { created, failed, errors } = res.data;
+  if (failed > 0) {
+    const detail = errors
+      .slice(0, 8)
+      .map((e) => `row ${e.row}: ${e.error}`)
+      .join('  •  ');
+    const more = errors.length > 8 ? `  •  …${errors.length - 8} more` : '';
+    flash = { text: `Imported ${created}, skipped ${failed} — ${detail}${more}`, kind: 'err' };
+  } else {
+    flash = { text: `Imported ${created} explorer${created === 1 ? '' : 's'}.`, kind: 'ok' };
+  }
+  await init();
 }
 
 async function addTester(): Promise<void> {
