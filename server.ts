@@ -3,6 +3,8 @@
 // with server-authoritative ball physics. accounts/rovers persist in sqlite;
 // live world state stays in memory — restart respawns everything fresh.
 
+// eslint-disable-next-line no-unassigned-import -- side-effect import: loads .env before any module below reads process.env
+import './server/load-env'; // MUST be first: populates process.env before other modules read it
 import { WebSocketServer, WebSocket } from 'ws';
 import { randomUUID } from 'crypto';
 import { createServer, IncomingMessage, ServerResponse } from 'http';
