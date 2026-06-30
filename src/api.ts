@@ -131,6 +131,30 @@ export interface SimulateOpts {
   concurrency?: number;
 }
 
+// the two-agent handshake demo: exactly two persistent explorers, authored
+// inline, that hold one live streamed conversation.
+export interface HandshakeDemo {
+  a: Tester;
+  b: Tester;
+  testKeyConfigured: boolean;
+  mock: boolean;
+  allowedModels: string[];
+}
+
+// one newline-delimited event off POST /api/dev/handshake/run.
+export type HandshakeEvent =
+  | { type: 'start'; a: string; b: string; models: { a: string; b: string } }
+  | { type: 'line'; speaker: 'a' | 'b'; text: string; at: number }
+  | {
+      type: 'done';
+      status: string;
+      turns: number;
+      totalTokens: number;
+      estCostUsd: number;
+      error?: string;
+    }
+  | { type: 'error'; error: string };
+
 export const api = {
   register: (username: string, password: string) =>
     req<Me>('POST', '/api/register', { username, password }),
@@ -154,4 +178,30 @@ export const api = {
     req<Tester>('PUT', `/api/dev/testers/${id}`, update),
   devDeleteTester: (id: number) => req<{ ok: boolean }>('DELETE', `/api/dev/testers/${id}`),
   devSimulate: (opts: SimulateOpts) => req<SimReport>('POST', '/api/dev/simulate', opts),
+  devHandshakeProfiles: () => req<HandshakeDemo>('GET', '/api/dev/handshake'),
 };
+
+// stream the live two-agent handshake, yielding each NDJSON event as it lands.
+// kept out of the `api` object because it returns a stream, not a single result.
+export async function* streamHandshake(): AsyncGenerator<HandshakeEvent> {
+  const res = await fetch('/api/dev/handshake/run', { method: 'POST' });
+  if (!res.ok || !res.body) {
+    throw new Error(`handshake stream failed (${res.status})`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const chunk = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (chunk) yield JSON.parse(chunk) as HandshakeEvent;
+    }
+  }
+  const tail = buf.trim();
+  if (tail) yield JSON.parse(tail) as HandshakeEvent;
+}

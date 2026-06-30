@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>r_planet — the handshake</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1a1a22;
+        --line: #d7d7df;
+        --bg: #f6f6f2;
+        --accent: #3a5bd9;
+        --bad: #c0392b;
+        --muted: #6b6b78;
+        --paper: #fbfbf6;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        padding: 24px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      .sub {
+        color: var(--muted);
+        margin: 0 0 20px;
+      }
+      .notice {
+        background: #fff4f4;
+        border: 1px solid #f0c4c4;
+        color: var(--bad);
+        padding: 16px;
+        border-radius: 8px;
+      }
+      .bar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+      .pill {
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 12px;
+      }
+      .pill.ok {
+        border-color: #bfe3c4;
+        background: #f1fbf2;
+      }
+      .pill.warn {
+        border-color: #f0d9a8;
+        background: #fffaf0;
+      }
+      button {
+        font: inherit;
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      label {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      textarea,
+      input[type='text'],
+      select {
+        font: inherit;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 5px 7px;
+        width: 100%;
+      }
+      textarea {
+        resize: vertical;
+        min-height: 44px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .msg {
+        font-size: 12px;
+        min-height: 16px;
+      }
+      .msg.err {
+        color: var(--bad);
+      }
+      .msg.ok {
+        color: #2e7d32;
+      }
+
+      /* ---- two profile editors, side by side ---- */
+      .profiles {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 0 0 20px;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .card h3 {
+        margin: 0;
+        font-size: 13px;
+        font-family: ui-monospace, monospace;
+        color: var(--muted);
+      }
+      .card.right {
+        text-align: right;
+      }
+      .card.right .pad-wrap {
+        flex-direction: row-reverse;
+      }
+      .pad-wrap {
+        display: flex;
+        gap: 10px;
+      }
+      canvas.pad {
+        width: 120px;
+        height: 180px;
+        border: 1px dashed var(--line);
+        border-radius: 6px;
+        background: #fff;
+        touch-action: none;
+        flex: none;
+      }
+      .fields {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex: 1;
+        text-align: left;
+      }
+
+      /* ---- the stage: a quiet paper world ---- */
+      section.stage {
+        position: relative;
+        background: var(--paper);
+        background-image:
+          linear-gradient(#ececdf 1px, transparent 1px),
+          linear-gradient(90deg, #ececdf 1px, transparent 1px);
+        background-size: 28px 28px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 28px;
+        overflow: hidden;
+      }
+      .stage-controls {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 8px;
+      }
+      .stage-controls h2 {
+        margin: 0;
+        font-size: 16px;
+        flex: 1;
+      }
+      /* the two doodles flank a central conversation column, facing inward */
+      .scene {
+        position: relative;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 20px;
+        min-height: 440px;
+        padding: 22px 12px;
+      }
+      .actor {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        width: 124px;
+        transition: transform 0.25s ease;
+      }
+      .actor img {
+        height: 150px;
+        width: auto;
+        image-rendering: auto;
+        filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.06));
+        transition: transform 0.25s ease;
+      }
+      /* the two doodles face inward (right one mirrored) */
+      .actor.right img {
+        transform: scaleX(-1);
+      }
+      .actor .placeholder {
+        height: 150px;
+        width: 100px;
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted);
+        font-size: 11px;
+        text-align: center;
+        padding: 6px;
+        background: rgba(255, 255, 255, 0.6);
+      }
+      .actor .nametag {
+        font-family: ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.7);
+        padding: 1px 8px;
+        border-radius: 999px;
+      }
+      /* the active speaker lifts and bobs */
+      .actor.speaking {
+        transform: translateY(-4px);
+        z-index: 3;
+      }
+      .actor.speaking img {
+        animation: bob 0.9s ease-in-out infinite;
+      }
+      @keyframes bob {
+        0%,
+        100% {
+          transform: scaleX(var(--flip, 1)) translateY(0);
+        }
+        50% {
+          transform: scaleX(var(--flip, 1)) translateY(-5px);
+        }
+      }
+      .actor.right.speaking img {
+        --flip: -1;
+      }
+      /* the "thinking" ellipsis shown under the listener */
+      .thinking {
+        height: 18px;
+        font-size: 20px;
+        line-height: 0.6;
+        letter-spacing: 2px;
+        color: var(--muted);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+      .thinking.show {
+        opacity: 1;
+        animation: pulse 1.2s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.4;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      /* ---- the conversation cascade ---- */
+      .cascade {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+        max-height: 396px;
+        overflow-y: auto;
+        padding: 4px 6px;
+        scroll-behavior: smooth;
+      }
+      .cascade:empty {
+        align-items: center;
+        justify-content: center;
+      }
+      .cascade:empty::before {
+        content: 'Press “run the handshake” to watch them talk.';
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .turn {
+        display: flex;
+        max-width: 74%;
+        animation: pop 0.3s ease both;
+      }
+      .turn.a {
+        align-self: flex-start;
+      }
+      .turn.b {
+        align-self: flex-end;
+      }
+      @keyframes pop {
+        from {
+          opacity: 0;
+          transform: translateY(8px) scale(0.97);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .cbubble {
+        position: relative;
+        background: #fff;
+        border: 1.5px solid var(--ink);
+        border-radius: 16px;
+        padding: 10px 15px;
+        font-size: 15px;
+        line-height: 1.45;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+        word-break: break-word;
+      }
+      .turn.a .cbubble {
+        border-bottom-left-radius: 5px;
+      }
+      .turn.b .cbubble {
+        border-bottom-right-radius: 5px;
+        background: #eef2ff; /* tint explorer B so the two voices read apart */
+      }
+      /* a small tail pointing back toward the speaker's doodle */
+      .cbubble::before {
+        content: '';
+        position: absolute;
+        top: 15px;
+        width: 11px;
+        height: 11px;
+        background: inherit;
+        transform: rotate(45deg);
+      }
+      .turn.a .cbubble::before {
+        left: -6px;
+        border-left: 1.5px solid var(--ink);
+        border-bottom: 1.5px solid var(--ink);
+      }
+      .turn.b .cbubble::before {
+        right: -6px;
+        border-right: 1.5px solid var(--ink);
+        border-top: 1.5px solid var(--ink);
+      }
+      /* the line currently being spoken */
+      .cbubble.active {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(58, 91, 217, 0.13);
+      }
+      .turn.a .cbubble.active::before,
+      .turn.b .cbubble.active::before {
+        border-color: var(--accent);
+      }
+      .caret {
+        display: inline-block;
+        width: 2px;
+        height: 1em;
+        background: var(--ink);
+        margin-left: 1px;
+        vertical-align: text-bottom;
+        animation: blink 0.9s steps(1) infinite;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+
+      /* ---- footer: run stats ---- */
+      .footer {
+        display: flex;
+        gap: 28px;
+        align-items: flex-start;
+        margin-top: 18px;
+        flex-wrap: wrap;
+      }
+      .stats {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+      .stat b {
+        display: block;
+        font-size: 18px;
+      }
+      .stat span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>r_planet — the handshake</h1>
+    <p class="sub">
+      Author two explorers, then watch their once-a-day handshake unfold live. Each line is a real
+      LLM turn over the shared test key. Local dev only.
+    </p>
+    <div id="root"></div>
+    <script type="module" src="/src/handshake-demo.ts"></script>
+  </body>
+</html>

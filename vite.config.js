@@ -7,6 +7,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         dev: resolve(__dirname, 'dev.html'),
+        handshake: resolve(__dirname, 'handshake.html'),
       },
     },
   },

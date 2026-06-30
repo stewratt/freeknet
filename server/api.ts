@@ -9,6 +9,8 @@ import { randomBytes } from 'crypto';
 import * as dbq from './db';
 import { encryptApiKey, hashPassword, verifyPassword } from './crypto';
 import { runSimulation } from './simulate';
+import { converse, resolveApiKey } from './handshake';
+import { estimateCostUsd } from './openrouter';
 import {
   clearSessionCookie,
   endSession,
@@ -254,8 +256,7 @@ function testerToJson(user: UserRow) {
 function devListTesters(res: ServerResponse): void {
   sendJson(res, 200, {
     testers: dbq.listTestUsers().map(testerToJson),
-    testKeyConfigured:
-      !!process.env.FREEKNET_TEST_API_KEY || process.env.FREEKNET_LLM_MOCK === '1',
+    testKeyConfigured: !!process.env.FREEKNET_TEST_API_KEY || process.env.FREEKNET_LLM_MOCK === '1',
     mock: process.env.FREEKNET_LLM_MOCK === '1',
     allowedModels: [...ALLOWED_MODELS],
   });
@@ -380,12 +381,113 @@ async function devSimulate(req: IncomingMessage, res: ServerResponse): Promise<v
   sendJson(res, 200, report);
 }
 
+// ---- two-agent handshake demo ----------------------------------------------
+//
+// a focused surface for the investor-deck recording: exactly two persistent
+// explorers (demo_a / demo_b) authored inline, then a single live handshake
+// streamed turn-by-turn. uses the same shared test key + converse() core as the
+// batch simulation, just for one pair with per-line streaming.
+
+const DEMO_USERNAMES = ['demo_a', 'demo_b'] as const;
+
+// fetch the two demo explorers, creating any that don't exist yet so the page
+// always has a stable left/right slot across reloads (multiple recording takes).
+function ensureDemoUsers(): UserRow[] {
+  return DEMO_USERNAMES.map((name) => {
+    const existing = dbq.getUserByName(name);
+    if (existing) return existing;
+    const { salt, hash } = hashPassword(randomBytes(24).toString('hex'));
+    const id = dbq.createTestUser(name, salt, hash);
+    return dbq.getUserById(id)!;
+  });
+}
+
+function devHandshakeProfiles(res: ServerResponse): void {
+  const [a, b] = ensureDemoUsers();
+  sendJson(res, 200, {
+    a: testerToJson(a),
+    b: testerToJson(b),
+    testKeyConfigured: !!process.env.FREEKNET_TEST_API_KEY || process.env.FREEKNET_LLM_MOCK === '1',
+    mock: process.env.FREEKNET_LLM_MOCK === '1',
+    allowedModels: [...ALLOWED_MODELS],
+  });
+}
+
+// stream the live conversation between the two demo explorers as newline-
+// delimited JSON: one {type:'line'} per turn as it lands, then a {type:'done'}
+// (or {type:'error'}) summary. the client animates each line into a thought
+// bubble as it arrives.
+async function devHandshakeRun(res: ServerResponse): Promise<void> {
+  const [a, b] = ensureDemoUsers();
+  const rovers = { a: dbq.getRover(a.id), b: dbq.getRover(b.id) };
+
+  res.writeHead(200, {
+    'content-type': 'application/x-ndjson; charset=utf-8',
+    'cache-control': 'no-cache, no-transform',
+    'x-accel-buffering': 'no',
+  });
+  const write = (event: unknown) => res.write(`${JSON.stringify(event)}\n`);
+
+  // both explorers must have a saved profile (rover row + model) and a usable
+  // key before they can talk. surface a friendly reason instead of a 500.
+  for (const [slot, user, rover] of [
+    ['a', a, rovers.a],
+    ['b', b, rovers.b],
+  ] as const) {
+    if (!rover) {
+      write({
+        type: 'error',
+        error: `${slot === 'a' ? 'left' : 'right'} explorer has no profile yet — draw and save it first`,
+      });
+      res.end();
+      return;
+    }
+    if (!resolveApiKey(user)) {
+      write({
+        type: 'error',
+        error: 'no usable test key — set FREEKNET_TEST_API_KEY (or FREEKNET_LLM_MOCK=1)',
+      });
+      res.end();
+      return;
+    }
+  }
+
+  write({
+    type: 'start',
+    a: a.username,
+    b: b.username,
+    models: { a: rovers.a!.model, b: rovers.b!.model },
+  });
+
+  const result = await converse(a.id, b.id, {
+    instanceId: 'handshake-demo',
+    burnQuota: false,
+    onLine: (line) => write({ type: 'line', speaker: line.speaker, text: line.text, at: line.at }),
+  });
+
+  const { prompt_tokens: p, completion_tokens: c } = result.usage;
+  const estCostUsd =
+    estimateCostUsd(rovers.a!.model, Math.round(p / 2), Math.round(c / 2)) +
+    estimateCostUsd(rovers.b!.model, Math.round(p / 2), Math.round(c / 2));
+  write({
+    type: 'done',
+    status: result.status,
+    turns: result.turnsDone,
+    totalTokens: result.usage.total_tokens,
+    estCostUsd,
+    error: result.error,
+  });
+  res.end();
+}
+
 async function handleDevApi(
   req: IncomingMessage,
   res: ServerResponse,
   method: string,
   path: string,
 ): Promise<void> {
+  if (path === '/api/dev/handshake' && method === 'GET') return devHandshakeProfiles(res);
+  if (path === '/api/dev/handshake/run' && method === 'POST') return devHandshakeRun(res);
   if (path === '/api/dev/testers') {
     if (method === 'GET') return devListTesters(res);
     if (method === 'POST') return devCreateTester(res);
@@ -421,7 +523,8 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
 
     // dev tools: gated entirely by the env flag, no session required (local dev)
     if (path.startsWith('/api/dev/')) {
-      if (process.env.FREEKNET_DEV_TOOLS !== '1') return (sendJson(res, 404, { error: 'not found' }), true);
+      if (process.env.FREEKNET_DEV_TOOLS !== '1')
+        return (sendJson(res, 404, { error: 'not found' }), true);
       return (await handleDevApi(req, res, req.method ?? '', path), true);
     }
 

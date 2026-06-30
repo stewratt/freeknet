@@ -78,6 +78,9 @@ export interface ConverseOpts {
   instanceId: string;
   burnQuota?: boolean; // live handshakes burn the daily quota; sim runs don't
   isLive?: () => boolean; // abort if a live rover despawns mid-chat
+  // called once per turn, right after the line is produced and persisted. lets
+  // a caller stream the conversation as it unfolds (the two-agent demo page).
+  onLine?: (line: TranscriptLine) => void;
 }
 
 export interface ConverseResult {
@@ -147,9 +150,15 @@ export async function converse(
       usage.prompt_tokens += result.usage.prompt_tokens;
       usage.completion_tokens += result.usage.completion_tokens;
       usage.total_tokens += result.usage.total_tokens;
-      transcript.push({ speaker, text: result.text.slice(0, LINE_MAX_CHARS), at: Date.now() });
+      const line: TranscriptLine = {
+        speaker,
+        text: result.text.slice(0, LINE_MAX_CHARS),
+        at: Date.now(),
+      };
+      transcript.push(line);
       turnsDone++;
       dbq.updateHandshakeTranscript(handshakeId, JSON.stringify(transcript));
+      opts.onLine?.(line);
     }
 
     dbq.finishHandshake(handshakeId, 'done', null);
